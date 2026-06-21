@@ -1,0 +1,8 @@
+datasets>=3.0
+scikit-learn==1.9.0   # pinned: data/keep_scorer.joblib is pickled with 1.9.0; a different version breaks predict_proba on load. Re-run scripts/train_scorer.py to regenerate under another version.
+numpy
+scipy
+tiktoken
+anthropic>=0.40
+fastapi
+uvicorn[standard]
