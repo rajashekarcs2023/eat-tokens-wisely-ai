@@ -1,0 +1,32 @@
+{
+  "task": "Fix the bug where new email signups lose the original deep link after the email verification step.",
+  "context": {
+    "github.get_issue": {
+      "number": 412,
+      "repository_url": "https://github.com/acme/web-app",
+      "html_url": "https://github.com/acme/web-app/issues/412",
+      "user": {"login": "pm-dana", "url": "https://github.com/pm-dana", "type": "User"},
+      "labels": [
+        {"name": "bug", "color": "d73a4a", "url": "https://github.com/acme/web-app/labels/bug"},
+        {"name": "auth", "color": "0e8a16", "url": "https://github.com/acme/web-app/labels/auth"}
+      ],
+      "title": "Deep link lost for new email signups",
+      "body": "Users who open a shared hackathon deep link and then create a new account with email end up on the generic dashboard instead of the original page. Deep link works fine for users who are already signed in, and for brand-new signups via Google. It only breaks for the email signup path. This started around the time we shipped the new email verification screen."
+    },
+    "github.list_comments": [
+      {"repository_url": "https://github.com/acme/web-app", "user": {"login": "eng-sam", "url": "https://github.com/eng-sam", "type": "User"}, "body": "Confirmed repro on staging. Already-authenticated users keep the deep link, so the router guard is fine."},
+      {"repository_url": "https://github.com/acme/web-app", "user": {"login": "eng-sam", "url": "https://github.com/eng-sam", "type": "User"}, "body": "Google OAuth signups also keep the deep link because the redirect_to param survives the OAuth callback round-trip."},
+      {"repository_url": "https://github.com/acme/web-app", "user": {"login": "qa-lee", "url": "https://github.com/qa-lee", "type": "User"}, "body": "+1, I can reproduce every time on the email path. Cleared cache, same result."},
+      {"repository_url": "https://github.com/acme/web-app", "user": {"login": "qa-lee", "url": "https://github.com/qa-lee", "type": "User"}, "body": "Tried in Firefox and Safari too, identical behavior. Not browser specific."},
+      {"repository_url": "https://github.com/acme/web-app", "user": {"login": "eng-sam", "url": "https://github.com/eng-sam", "type": "User"}, "body": "The email verification screen navigates with router.push('/dashboard') after the user clicks the verify link, which throws away whatever redirect_to query param we captured at signup start."},
+      {"repository_url": "https://github.com/acme/web-app", "user": {"login": "sec-ana", "url": "https://github.com/sec-ana", "type": "User"}, "body": "Whatever fix we ship, do not blindly redirect to an arbitrary URL. Only allow signed or whitelisted internal paths, otherwise we open an open-redirect vulnerability."}
+    ],
+    "slack.search": "thread #auth-bugs: dana: anyone know why the deep link dies on email signup? | sam: looking. it survives google but not email | sam: the verify-email page hard-codes a push to /dashboard | dana: lol classic | lee: standup at 10? | sam: yeah | dana: so we lose redirect_to during the verification hop | sam: exactly, we capture it at signup but never persist it across the email verification round trip | ana: please whitelist redirect targets, no open redirects | dana: coffee? | lee: brb",
+    "github.get_file": {
+      "path": "app/auth/verify-email/page.tsx",
+      "repository_url": "https://github.com/acme/web-app",
+      "content": "export default function VerifyEmail() { const router = useRouter(); useEffect(() => { confirmToken().then(() => { router.push('/dashboard'); }); }, []); return <Spinner/>; }"
+    },
+    "ci.get_logs": "INFO build started\nINFO installing dependencies\nINFO dependencies installed in 41s\nINFO running unit tests\nINFO 1423 tests passed\nWARN flaky test auth.spec retried once\nINFO building production bundle\nINFO bundle size 2.4mb\nINFO deploy to staging complete\nINFO healthcheck ok\nINFO build started\nINFO installing dependencies\nINFO dependencies installed in 39s\nINFO running unit tests\nINFO 1423 tests passed\nINFO building production bundle\nINFO deploy to staging complete\nINFO healthcheck ok"
+  }
+}

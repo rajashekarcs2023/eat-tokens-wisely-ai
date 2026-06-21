@@ -1,0 +1,22 @@
+{
+  "full": {
+    "avg_tokens": 4295.666666666667,
+    "em": 1.0,
+    "f1": 1.0,
+    "n": 60
+  },
+  "compact": {
+    "avg_tokens": 2216.75,
+    "em": 1.0,
+    "f1": 1.0,
+    "n": 60
+  },
+  "minified_tokens": 2813.9166666666665,
+  "token_reduction_vs_pretty_pct": 48.4,
+  "token_reduction_vs_minified_pct": 21.2,
+  "accuracy_baseline": "compact form vs full pretty-printed JSON (what tools emit)",
+  "baseline_note": "Accuracy maintained at the pretty operating point (48.4% fewer tokens); the codec's structural contribution net of whitespace, vs minified JSON, is 21.2%.",
+  "lossless": true,
+  "reader": "claude-haiku-4-5",
+  "question_set": "guess-resistant (varying assignee/label-color/label-count/body)"
+}

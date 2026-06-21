@@ -1,0 +1,13 @@
+{
+  "transcript": "agent: Hi. Thanks for calling Acme platform support. This is Dana. How can I help you today?\ncustomer: Hey Dana. So our nightly deployment to the staging environment keeps failing and it's blocking our release.\nagent: Sorry to hear that. Let's get it sorted. What error message are you seeing in the deploy logs?\ncustomer: It's of database migration timeout after thirty seconds, and then the whole deploy rolls back.\nagent: Okay, a migration time out. Which database are you writing, and what version?\ncustomer: We're on Postgres 14.2. We upgraded from 13 about a week ago.\nagent: Got it. And is this a shared cluster or a dedicated instance?\ncustomer: Dedicated. The instance is called dbprod7. It's in The US East region.\nagent: Thanks. The migration that's timing out, what is it actually doing? Which table?\ncustomer: It's adding a column to the orders table. That table has about 48,000,000 rows.\nagent: That's almost certainly the cause. A blocking alter on a table that large will not finish inside the thirty second statement time out.\ncustomer: Makes sense. So how do we fix it without taking the orders table offline?\nagent: Two options. The quick one is to set the statement timeout to zero, just for the migration session. The safer one is to run it as a batched online schema change.\ncustomer: We'd rather not lock the table during business hours, so let's go with the online approach.\nagent: Quick call. For a table this size, I'd recommend PGAuth C, or a similar online schema change tool. It rewrites the table in small batches with no long lock.\ncustomer: Perfect. And will that affect our read replicas while it runs?\nagent: The replicas will lag a little during the rewrite, but they won't drop connections. I'd run it during your lowest traffic window to be safe.\ncustomer: Great. That's really helpful. I think that's everything I need.\nagent: Happy to help. I'll email you the p g ask runbook and the exact statement timeout setting. Have a good one.",
+  "question": "What is the root cause of the customer's failing deployment, and what fix did the agent recommend?",
+  "gold": "migration timeout",
+  "deepgram": {
+    "stt_model": "nova-3",
+    "tts_model": "aura-2-thalia-en",
+    "turns": 19,
+    "verified": true
+  },
+  "title": "Voice agent \u00b7 compress a transcribed support call",
+  "blurb": "A real Deepgram ASR transcript of a 19-turn support call. Voice agents are latency-sensitive and transcripts are long \u2014 the extractive selector keeps only the load-bearing turns so the LLM answers faster and cheaper."
+}
