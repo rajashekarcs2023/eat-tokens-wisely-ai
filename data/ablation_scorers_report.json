@@ -1,0 +1,14 @@
+{
+  "A": {
+    "train_keep_rate": 0.060140754958413305,
+    "auc_vs_isgold_test": 0.8707826850117824
+  },
+  "B": {
+    "train_keep_rate": 0.3314139475367882,
+    "auc_vs_isgold_test": 0.6291495919340461
+  },
+  "C": {
+    "train_keep_rate": 0.030070377479206652,
+    "auc_vs_isgold_test": 0.855991993015772
+  }
+}
