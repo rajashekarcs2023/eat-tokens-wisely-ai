@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 scripts/crosstask.py --dataset coqa --n 4)",
+      "Bash(python3 scripts/crosstask.py --dataset narrativeqa --n 4)",
+      "Bash(nohup python3 scripts/crosstask.py --dataset coqa --n 80)",
+      "Bash(echo \"coqa pid $!\")",
+      "Bash(nohup python3 scripts/crosstask.py --dataset narrativeqa --n 60)",
+      "Bash(echo \"narrativeqa pid $!\")"
+    ]
+  }
+}
