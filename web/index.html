@@ -1,0 +1,633 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Eat Tokens Wisely · context compression for LLMs & agents</title>
+<style>
+  :root{
+    --bg:#0c0d10; --panel:#15171c; --panel2:#1c1f26; --ink:#e8eaed; --mut:#9aa0a8;
+    --acc:#5eead4; --acc2:#a78bfa; --good:#34d399; --bad:#f87171; --line:#2a2e37; --warn:#fbbf24; --bm:#fb923c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  a{color:var(--acc)}
+  .wrap{max-width:1080px;margin:0 auto;padding:28px 22px 80px}
+  header h1{margin:0;font-size:30px;letter-spacing:-.5px}
+  header h1 .zip{color:var(--acc)}
+  .sub{color:var(--mut);margin:6px 0 0;max-width:760px}
+  .pitch{background:linear-gradient(180deg,#15171c,#121317);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:18px 0;font-size:15px}
+  .pitch b{color:var(--acc)}
+  .badges{display:flex;flex-wrap:wrap;gap:10px;margin:16px 0}
+  .badge{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:9px 13px;font-size:13px}
+  .badge b{font-size:18px;color:var(--acc);display:block}
+  .badge.alt b{color:var(--acc2)}
+  h2{font-size:14px;text-transform:uppercase;letter-spacing:1.4px;color:var(--mut);margin:34px 0 12px;border-bottom:1px solid var(--line);padding-bottom:8px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:840px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .card h3{margin:0 0 4px;font-size:15px}
+  .card .cap{color:var(--mut);font-size:12.5px;margin:0 0 10px;min-height:32px}
+  canvas{width:100%;height:230px}
+  .legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--mut);margin-top:8px}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+  .toggle{float:right;font-size:12px}
+  .toggle button{background:var(--panel2);color:var(--mut);border:1px solid var(--line);border-radius:7px;padding:3px 9px;cursor:pointer}
+  .toggle button.on{color:var(--acc);border-color:var(--acc)}
+  /* live */
+  .live{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:840px){.live{grid-template-columns:1fr}}
+  label{font-size:12px;color:var(--mut);display:block;margin:10px 0 4px}
+  input[type=text],textarea{width:100%;background:#0e0f13;border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:10px;font:13px/1.5 inherit}
+  textarea{height:230px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .row{display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap}
+  button.go{background:var(--acc);color:#04211c;border:0;border-radius:9px;padding:10px 18px;font-weight:700;cursor:pointer}
+  button.ghost{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:9px 14px;cursor:pointer}
+  input[type=range]{accent-color:var(--acc)}
+  .bignum{display:flex;gap:18px;margin:6px 0 12px}
+  .bignum div{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .bignum b{display:block;font-size:24px}
+  .bignum .red{color:var(--good)}
+  .needs span{display:inline-block;font-size:11.5px;border-radius:20px;padding:3px 10px;margin:3px 4px 0 0;border:1px solid var(--line)}
+  .needs .y{color:var(--good);border-color:#1f5f4a;background:#0f1f1a}
+  .needs .n{color:var(--mut)}
+  .spans{max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:6px;background:#0e0f13;font-size:12.5px}
+  .span{padding:6px 8px;border-radius:7px;margin:3px 0;border-left:3px solid transparent}
+  .span.keep{background:#0f1c19;border-left-color:var(--good)}
+  .span.drop{opacity:.42}
+  .span .meta{color:var(--mut);font-size:10.5px;font-family:ui-monospace,monospace}
+  .sc{display:inline-block;min-width:34px;color:var(--acc)}
+  .note{color:var(--mut);font-size:12.5px;margin-top:8px}
+  .pipeline{font-family:ui-monospace,monospace;font-size:12.5px;color:var(--mut);background:#0e0f13;border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto}
+  .ok{color:var(--good)} .muted{color:var(--mut)} .warnc{color:var(--warn)}
+  .tabsnav{display:flex;gap:6px;margin:20px 0 6px;border-bottom:1px solid var(--line)}
+  .tabbtn{background:none;border:0;border-bottom:2px solid transparent;color:var(--mut);font-size:15px;font-weight:600;padding:11px 16px;cursor:pointer}
+  .tabbtn.on{color:var(--acc);border-bottom-color:var(--acc)}
+  .uccard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;cursor:pointer;flex:1;min-width:230px;transition:border-color .15s}
+  .uccard:hover{border-color:var(--acc)} .uccard.sel{border-color:var(--acc);background:var(--panel2)}
+  .uccard h4{margin:0 0 6px;font-size:14.5px}
+  .vs{display:flex;gap:14px;margin-top:14px}
+  @media(max-width:840px){.vs{flex-direction:column}}
+  .vs .side{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .vs .side.win{border-color:#1f5f4a}
+  .vs .big{font-size:30px;font-weight:800;line-height:1}
+  .ctxprev{font-family:ui-monospace,monospace;font-size:11px;color:var(--mut);background:#0e0f13;border:1px solid var(--line);border-radius:8px;padding:8px;max-height:120px;overflow:auto;white-space:pre-wrap;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Eat Tokens Wisely
+      <a href="/architecture" style="float:right;font-size:13px;font-weight:600;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:8px 14px;text-decoration:none;color:var(--acc)">🏛 Architecture &amp; novelty →</a></h1>
+    <p class="sub">A <b>context-compression layer for LLMs &amp; agents</b>. Two modes: a <b>lossless</b> structural codec for repetitive/structured input (JSON tool output, logs) — byte-exact — and a <b>lossy extractive</b> selector for prose (docs, search, conversations) that keeps the smallest set of <i>original, verbatim</i> spans under a token budget. No generative model in the compression path: it adds no fabricated content and is measured against gold labels, not an LLM judge.</p>
+  </header>
+
+  <div class="pitch">
+    Compression as <b>rate–distortion source coding</b>: a token-budget knob that slides along a Pareto frontier we plot on real data (HotpotQA, gold answers + gold supporting facts). Every kept token came from the source, with provenance — so <b>“zero unsupported claims” is a string-containment property, not an opinion.</b>
+  </div>
+
+  <div class="badges" id="badges"></div>
+
+  <div class="tabsnav" id="tabsNav">
+    <button class="tabbtn on" data-tab="bench">📊 Benchmarks &amp; honest science</button>
+    <button class="tabbtn" data-tab="usecases">⚡ Use cases · normal vs compressed</button>
+  </div>
+
+  <div id="tab-bench">
+  <h2>Prove it live · watch compressed context answer correctly</h2>
+  <div class="card">
+    <div class="row">
+      <button class="go" id="proveBtn">▶ Run on a random held-out question</button>
+      <span class="note">real Claude calls · held-out HotpotQA · scored vs the gold answer · not pre-recorded</span>
+    </div>
+    <div id="proveOut" style="margin-top:14px"></div>
+  </div>
+
+  <h2>The proof · accuracy vs tokens (Pareto frontier)</h2>
+  <div class="grid">
+    <div class="card">
+      <h3>Downstream answer quality <span class="toggle" id="emf1"><button data-k="f1" class="on">F1</button><button data-k="em">EM</button></span></h3>
+      <p class="cap">A frozen Claude Haiku reader answers from the compressed context only; scored with HotpotQA official EM/token-F1 vs the gold answer. Same reader across all arms — a ruler, not a judge.</p>
+      <canvas id="cExt"></canvas>
+      <div class="legend" id="lExt"></div>
+    </div>
+    <div class="card">
+      <h3>Gold-fact retention (zero-API)</h3>
+      <p class="cap">Fraction of human-labelled supporting facts kept, vs tokens sent. Distortion = facts dropped. Pure set comparison — no model call anywhere.</p>
+      <canvas id="cInt"></canvas>
+      <div class="legend" id="lInt"></div>
+    </div>
+    <div class="card">
+      <h3>Learned scorer beats lexical ranking</h3>
+      <p class="cap">Held-out AUC at the unit level: predict “is this span a gold supporting fact”. A tiny CPU logistic regression trained on gold labels.</p>
+      <canvas id="cAuc"></canvas>
+      <div class="legend"><span class="muted">AUC ↑ better · trained on HotpotQA <code>supporting_facts</code></span></div>
+    </div>
+    <div class="card">
+      <h3>Robust to duplicate retrieval</h3>
+      <p class="cap">Inject R near-identical copies of one relevant passage (multi-tool agents re-surface the same content). Near-dup suppression holds recall flat; ablating it crashes recall and wastes budget on copies.</p>
+      <canvas id="cRed"></canvas>
+      <div class="legend" id="lRed"></div>
+    </div>
+  </div>
+
+  <h2>Lossless mode · structured / tool-output data (zero information loss)</h2>
+  <div class="card">
+    <p class="cap">For structured, repetitive LLM inputs (MCP/API tool output, logs) we factor repeated sub-trees and string values into shared definitions — <b>provably lossless</b> (decode(encode(x))==x, unit-tested). The compact "definitions + references" form is read <b>natively by the LLM</b>, so we cut the tokens *sent to the LLM* with no information loss and no accuracy drop.</p>
+    <div class="bignum" id="structHead"></div>
+    <div class="note" id="structNote"></div>
+  </div>
+
+  <h2>Generalization · same compressor, different use cases (proven, not assumed)</h2>
+  <div class="card">
+    <p class="cap">The exact same HotpotQA-trained compressor — <b>never retrained</b> — run on three structurally different QA datasets. It compresses and preserves the majority of answer quality on all of them, always far above random. Honest caveat: out-of-domain, the <i>learned</i> scorer's edge over BM25 disappears (BM25 transfers as well or better) — the <b>framework</b> generalizes; the learned edge is in-domain.</p>
+    <div class="spans" id="genTable" style="max-height:none;font-size:13px"></div>
+  </div>
+
+  <h2>The new idea · reader-grounded label-source ablation</h2>
+  <div class="pitch" style="margin-top:0">
+    Everyone trains compressors on generic statistics or human relevance labels. We ask a sharper question: <b>train the selector on a signal derived from the reader model itself</b> — keep a span only if removing it actually changes <i>claude-haiku</i>'s answer — and see if that survives distillation into a cheap CPU scorer. Same selector, same features, same budget; <b>only the training label differs</b>: <span style="color:var(--acc2)">A</span> = human supporting-facts · <span style="color:var(--bm)">B</span> = LLMLingua-2-style importance · <span style="color:var(--acc)">C</span> = reader-grounded answer-impact. We report the C−A / C−B deltas with CIs — honestly, either way.
+  </div>
+  <div class="grid">
+    <div class="card">
+      <h3>Label source → downstream F1 @ matched tokens</h3>
+      <p class="cap">Three scorers, identical except the training label, at budget 240 tokens. The contribution is whether C (reader-grounded) beats A (human) and B (importance) — with paired bootstrap CIs.</p>
+      <canvas id="cAbl"></canvas>
+      <div class="legend" id="lAbl"></div>
+      <div class="note" id="ablCI"></div>
+    </div>
+    <div class="card">
+      <h3>Economics · real $ saved (the sponsor's business)</h3>
+      <p class="cap">Compression saves the same tokens regardless of which model reads them, so $ scales with the reader's input price. CPU compressor → no frontier-model call to compress → savings are real, not circular.</p>
+      <div class="bignum" id="econHead"></div>
+      <div class="spans" id="econTable" style="max-height:none"></div>
+      <div class="note" id="econNote"></div>
+    </div>
+  </div>
+
+  <h2>Live compressor · paste your own input</h2>
+  <div class="card">
+    <div class="row">
+      <span class="muted" style="font-size:12px">▶ Run a ready example →</span>
+      <button class="ghost" id="loadHero">MCP tool JSON</button>
+      <button class="ghost" data-preset="doc">Long document</button>
+      <button class="ghost" data-preset="chat">Support chat</button>
+      <button class="ghost" data-preset="code">Code file</button>
+      <button class="ghost" data-preset="log">Server log</button>
+      <span class="note">one click — loads &amp; runs · CPU-only · no API call. (The <b>Use cases</b> tab shows full normal-vs-compressed runs.)</span>
+    </div>
+    <div class="live" style="margin-top:12px">
+      <div>
+        <label>TASK (what the agent is trying to do)</label>
+        <input type="text" id="task" value="Fix the bug where new email signups lose the original deep link after the email verification step." />
+        <label>RAW CONTEXT (paste text, or JSON tool output)</label>
+        <textarea id="raw" placeholder="Paste a long doc, chat log, or MCP/tool JSON..."></textarea>
+        <div class="row">
+          <button class="go" id="run">Compress ▶</button>
+          <span>budget <b id="bval">200</b> tok</span>
+          <input type="range" id="budget" min="40" max="600" step="20" value="200" style="flex:1" />
+        </div>
+        <div class="note" id="liveNote"></div>
+      </div>
+      <div>
+        <div class="bignum" id="bignum"></div>
+        <label>NEED-SLOTS COVERED (from the task)</label>
+        <div class="needs" id="needs"></div>
+        <label style="margin-top:12px">SPANS — <span class="ok">kept</span> are verbatim &amp; source-tagged; dim = dropped</label>
+        <div class="spans" id="spans"></div>
+      </div>
+    </div>
+  </div>
+
+  <h2>How it works</h2>
+  <div class="card">
+    <div class="pipeline">raw context ─▶ <span class="ok">[lossless structural codec]</span> (JSON: factor repeated values, byte-reversible)
+            ─▶ unitize + char-offset provenance
+            ─▶ <span class="ok">learned keep-scorer</span> (LogReg on gold supporting_facts, CPU, ms)
+            ─▶ <span class="ok">budgeted selection + near-dup suppression</span> (submodular diversity)
+            ─▶ verbatim kept spans  ── 0 generative tokens, full provenance</div>
+    <p class="note">What is <b>learned</b>: the per-span keep-scorer, on measured human labels. What is <b>principled</b>: rate–distortion selection under a token budget + the lossless codec (round-trip unit-tested). What is <b>killed</b>: abstractive “capsules”, hand-weighted scoring formulas, and LLM-judge metrics. The compressor touches the expensive model <b>zero times per compression</b> — strictly cheaper than the tokens it saves.</p>
+  </div>
+  </div><!-- /tab-bench -->
+
+  <div id="tab-usecases" style="display:none">
+    <h2>Use cases · run a real scenario, normal vs compressed</h2>
+    <div class="card" style="border-color:#1f5f4a;margin-bottom:14px"><b class="ok">100% live — nothing is hardcoded.</b> <span class="note">The compressor is CPU code (scikit-learn + string ops, <b>no LLM</b>); the reader is Claude Haiku answering <b>fresh on every click</b> (temperature 0). For each scenario you can <b>edit the question and re-run</b>, or paste your own input into the Live compressor below. Token counts are deterministic; the lossless arm is byte-exact.</span></div>
+    <p class="sub" style="margin-bottom:14px">Pick a scenario. Each runs <b>live</b>: the frozen reader answers the <b>full</b> input vs the <b>compressed</b> input — real API calls, scored against a known answer.</p>
+    <div id="ucList" style="display:flex;flex-wrap:wrap;gap:12px"></div>
+    <div id="ucOut" style="margin-top:16px"></div>
+  </div>
+</div>
+
+<script>
+// ---------- tiny dependency-free canvas chart ----------
+function draw(canvas, opt){
+  const dpr = window.devicePixelRatio||1;
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  canvas.width = W*dpr; canvas.height = H*dpr;
+  const c = canvas.getContext('2d'); c.scale(dpr,dpr);
+  c.clearRect(0,0,W,H);
+  const padL=46, padR=14, padT=12, padB=34;
+  const series = opt.series.filter(s=>s.points.length);
+  let xs=[], ys=[];
+  series.forEach(s=>s.points.forEach(p=>{xs.push(p[0]);ys.push(p[1])}));
+  (opt.hlines||[]).forEach(h=>ys.push(h.y));
+  if(!xs.length){return;}
+  const xlog = !!opt.xlog;
+  const fx = v => xlog? Math.log10(Math.max(1,v)) : v;
+  let xmin=Math.min(...xs.map(fx)), xmax=Math.max(...xs.map(fx));
+  let ymin=opt.ymin!=null?opt.ymin:Math.min(...ys), ymax=opt.ymax!=null?opt.ymax:Math.max(...ys);
+  if(xmin===xmax){xmax=xmin+1}
+  ymin=Math.min(ymin, ...ys); ymax=Math.max(ymax,...ys);
+  const pad=(ymax-ymin)*0.08||0.05; ymin-=pad; ymax+=pad;
+  const X = v => padL + (fx(v)-xmin)/(xmax-xmin)*(W-padL-padR);
+  const Y = v => H-padB - (v-ymin)/(ymax-ymin)*(H-padT-padB);
+  // grid + y ticks
+  c.strokeStyle='#23262e'; c.fillStyle='#7d838c'; c.font='10px -apple-system,sans-serif';
+  for(let i=0;i<=4;i++){const yy=ymin+(ymax-ymin)*i/4; const py=Y(yy);
+    c.beginPath();c.moveTo(padL,py);c.lineTo(W-padR,py);c.stroke();
+    c.fillText(yy.toFixed(2),6,py+3);}
+  // x ticks
+  const xticks = opt.xticks || [];
+  c.textAlign='center';
+  xticks.forEach(t=>{const px=X(t);c.fillText(opt.xfmt?opt.xfmt(t):t,px,H-padB+15);});
+  c.textAlign='left';
+  // axis labels
+  c.fillStyle='#9aa0a8';
+  c.fillText(opt.xlabel||'',W/2-30,H-4);
+  c.save();c.translate(12,H/2+20);c.rotate(-Math.PI/2);c.fillText(opt.ylabel||'',0,0);c.restore();
+  // hlines
+  (opt.hlines||[]).forEach(h=>{const py=Y(h.y);c.setLineDash([5,4]);c.strokeStyle=h.color||'#555';
+    c.beginPath();c.moveTo(padL,py);c.lineTo(W-padR,py);c.stroke();c.setLineDash([]);
+    c.fillStyle=h.color||'#888';c.fillText(h.label,padL+4,py-4);});
+  // series
+  series.forEach(s=>{
+    const pts=s.points.slice().sort((a,b)=>fx(a[0])-fx(b[0]));
+    c.strokeStyle=s.color;c.lineWidth=s.w||2;
+    if(!s.pointsOnly){c.beginPath();pts.forEach((p,i)=>{const px=X(p[0]),py=Y(p[1]);i?c.lineTo(px,py):c.moveTo(px,py)});c.stroke();}
+    c.fillStyle=s.color;pts.forEach(p=>{c.beginPath();c.arc(X(p[0]),Y(p[1]),s.r||3.2,0,7);c.fill();});
+  });
+}
+function legend(el,items){el.innerHTML=items.map(i=>`<span><i style="background:${i.color}"></i>${i.name}</span>`).join('');}
+const C={suffix:'#5eead4',no_coverage:'#a78bfa',no_scorer:'#64748b',tfidf_topk:'#fbbf24',bm25_topk:'#fb923c',random:'#f87171',full:'#94a3b8'};
+const NAME={suffix:'ours',no_coverage:'learned scorer (no dedup)',no_scorer:'no scorer',tfidf_topk:'TF-IDF top-k',bm25_topk:'BM25 top-k',random:'random',full:'full context'};
+
+let DATA=null, EXT_METRIC='f1';
+async function boot(){
+  DATA = await (await fetch('/api/results')).json();
+  renderBadges(); renderExt(); renderInt(); renderAuc(); renderRed(); renderAbl(); renderEcon(); renderGen(); renderStruct();
+}
+function renderAbl(){
+  const p=DATA.pareto_v2; if(!p){return;}
+  const c=p.conditions, cis=p.cis;
+  const bars=[['full',c.full.f1,C.full],['A (human)',c['A@240'].f1,C.no_coverage],
+              ['B (importance)',c['B@240'].f1,'#fb923c'],['C (reader)',c['C@240'].f1,C.suffix],['bm25',c['bm25@240'].f1,'#fb923c']];
+  const cv=document.getElementById('cAbl'),ct=cv.getContext('2d');
+  const dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;cv.width=W*dpr;cv.height=H*dpr;ct.scale(dpr,dpr);ct.clearRect(0,0,W,H);
+  const top=0.85;const bw=(W-70)/bars.length-14,x0=50;
+  ct.strokeStyle='#23262e';ct.fillStyle='#7d838c';ct.font='10px sans-serif';
+  for(let i=0;i<=4;i++){const v=top*i/4,py=H-34-(v/top)*(H-50);ct.beginPath();ct.moveTo(40,py);ct.lineTo(W-8,py);ct.stroke();ct.fillText(v.toFixed(2),6,py+3);}
+  bars.forEach((b,i)=>{const x=x0+i*(bw+14),h=(b[1]/top)*(H-50),py=H-34-h;
+    ct.fillStyle=b[2];ct.fillRect(x,py,bw,h);
+    ct.fillStyle='#e8eaed';ct.font='bold 11px sans-serif';ct.textAlign='center';ct.fillText(b[1].toFixed(2),x+bw/2,py-5);
+    ct.fillStyle='#9aa0a8';ct.font='10px sans-serif';ct.fillText(b[0],x+bw/2,H-18);ct.textAlign='left';});
+  legend(document.getElementById('lAbl'),[{name:'full ceiling',color:C.full},{name:'A human',color:C.no_coverage},{name:'B importance',color:'#fb923c'},{name:'C reader-grounded',color:C.suffix}]);
+  const ca=cis['C_minus_A@240'],cb=cis['C_minus_B@240'];
+  const fmt=(v)=>`${v.delta>=0?'+':''}${v.delta.toFixed(3)} CI[${v.ci[0].toFixed(3)},${v.ci[1].toFixed(3)}]`;
+  document.getElementById('ablCI').innerHTML=
+    `<b style="color:${ca.clears_zero?'var(--good)':'var(--mut)'}">C−A = ${fmt(ca)}</b> — ${ca.clears_zero?'reader-grounded wins':'<span class="warnc">within noise: reader-grounded does NOT beat human labels (honest null result)</span>'}<br>`+
+    `<b style="color:var(--good)">C−B = ${fmt(cb)}</b> — query-conditioning beats query-agnostic importance decisively.`;
+}
+function renderStruct(){
+  const s=DATA.structural_qa; if(!s){return;}
+  document.getElementById('structHead').innerHTML=
+    `<div><b class="red">${s.token_reduction_vs_minified_pct}–${s.token_reduction_vs_pretty_pct}%</b><span class="muted">fewer tokens (lossless)</span></div>
+     <div><b>${s.full.em.toFixed(2)} → <span class="ok">${s.compact.em.toFixed(2)}</span></b><span class="muted">answer EM: full JSON → compact form</span></div>
+     <div><b class="ok">0</b><span class="muted">information lost (byte-exact)</span></div>`;
+  document.getElementById('structNote').innerHTML=
+    `${s.baseline_note} On ${s.full.n} factual questions over generated tool-output bundles, the reader answers the compact (deduplicated) form as accurately as full JSON. Logs compress ~54% the same way.`;
+}
+function renderGen(){
+  const ct=DATA.crosstask, p2=DATA.pareto_v2; if(!ct||!p2){return;}
+  const rows=[];
+  // HotpotQA from the v2 ablation (production-style A scorer)
+  const h=p2.conditions; rows.push(['HotpotQA (in-domain, multi-hop)',h.full,h['A@240'],h['bm25@240'],h['random@120']]);
+  if(ct.coqa){const c=ct.coqa.conditions;rows.push(['CoQA (conversations)',c.full,c['suffix@120'],c['bm25@120'],c['random@120']]);}
+  if(ct.squad){const c=ct.squad.conditions;rows.push(['SQuAD (single-hop QA, short)',c.full,c['suffix@120'],c['bm25@120'],c['random@120']]);}
+  if(ct.narrativeqa){const c=ct.narrativeqa.conditions;rows.push(['NarrativeQA (long documents, unseen)',c.full,c['suffix@240'],c['bm25@240'],c['random@120']]);}
+  if(ct['2wiki']){const c=ct['2wiki'].conditions;rows.push(['2WikiMultiHop (multi-hop, unseen)',c.full,c['suffix@240'],c['bm25@240'],c['random@120']]);}
+  const head=`<div class="span" style="border-left-color:transparent;color:var(--mut);font-size:11px"><b>dataset</b> &nbsp; full F1 · ours@240 (retained) · BM25 · random</div>`;
+  document.getElementById('genTable').innerHTML=head+rows.map(r=>{
+    const [name,full,ours,bm,rnd]=r; const ret=Math.round(100*ours.f1/full.f1);
+    const cx=(full.avg_tokens/ours.avg_tokens).toFixed(1);
+    return `<div class="span keep"><b>${name}</b>
+      <div class="meta" style="color:var(--ink);font-size:12.5px">full <b>${full.f1.toFixed(2)}</b> · ours <b style="color:var(--acc)">${ours.f1.toFixed(2)}</b> <span class="muted">(${ret}% retained, ${cx}×)</span> · BM25 ${bm.f1.toFixed(2)} · <span style="color:var(--bad)">random ${rnd.f1.toFixed(2)}</span></div></div>`;
+  }).join('');
+}
+function renderEcon(){
+  const e=DATA.economics; if(!e){return;}
+  document.getElementById('econHead').innerHTML=
+    `<div><b class="red">${e.compression_x}×</b><span class="muted">${e.full_tokens}→${e.compressed_tokens} tok</span></div>
+     <div><b class="red">${(e.tokens_saved_per_1M_queries/1e6).toFixed(0)}M</b><span class="muted">tokens saved / 1M queries</span></div>`;
+  document.getElementById('econTable').innerHTML=e.by_model.map(m=>
+    `<div class="span keep"><b style="color:var(--acc)">$${m.dollars_saved.toLocaleString()}</b> saved per 1M queries <span class="meta">${m.label} · $${m.input_price_per_mtok}/Mtok input</span></div>`).join('');
+  document.getElementById('econNote').innerHTML=`${e.price_source}. ${e.ruler_note}`;
+}
+function renderBadges(){
+  // single consistent source: pareto_v2 (n=150) + structural_qa, so numbers never contradict
+  const p2=DATA.pareto_v2, sq=DATA.structural_qa, p=DATA.pareto; if(!p2)return;
+  const c=p2.conditions, full=c.full, a=c['A@240'];
+  const b=[];
+  if(sq) b.push(['lossless · tool-output', sq.token_reduction_vs_pretty_pct+'%', 'fewer tokens, byte-exact, reader EM '+sq.compact.em.toFixed(2)+'='+sq.full.em.toFixed(2)]);
+  if(full&&a) b.push(['extractive retention', Math.round(100*a.f1/full.f1)+'%', 'F1 at '+(full.avg_tokens/a.avg_tokens).toFixed(1)+'× fewer tokens (n='+p2.n+')']);
+  if(p) b.push(['scorer AUC', p.scorer.learned_auc.toFixed(3), 'in-domain; ≈ BM25 out-of-domain']);
+  b.push(['fabrication', '0', 'compression step is extractive (verbatim spans)']);
+  document.getElementById('badges').innerHTML=b.map((x,i)=>`<div class="badge ${i%2?'alt':''}"><b>${x[1]}</b>${x[0]}<div class="muted" style="font-size:11px">${x[2]}</div></div>`).join('');
+}
+function renderExt(){
+  const ext=DATA.pareto&&DATA.pareto.extrinsic;
+  const cap=document.querySelector('#cExt').closest('.card').querySelector('.cap');
+  if(!ext){cap.innerHTML='<span class="warnc">No API key at build time — downstream arm not run. The zero-API retention curve (right) is the headline.</span>';return;}
+  const m=EXT_METRIC;
+  const mk=(method)=>({name:NAME[method],color:C[method],points:ext.conditions.filter(c=>c.method===method&&c.budget).map(c=>[c.avg_tokens,c[m]])});
+  const full=ext.conditions.find(c=>c.method==='full');
+  const rnd=ext.conditions.find(c=>c.method==='random');
+  const series=[mk('suffix'),mk('bm25_topk')];
+  if(rnd)series.push({name:'random',color:C.random,pointsOnly:true,r:4,points:[[rnd.avg_tokens,rnd[m]]]});
+  draw(document.getElementById('cExt'),{series,xlog:true,xlabel:'tokens sent (log)',ylabel:m.toUpperCase(),
+    xticks:[60,120,240,full?full.avg_tokens:1200],xfmt:v=>Math.round(v),
+    hlines: full?[{y:full[m],label:'full context ('+Math.round(full.avg_tokens)+' tok)',color:C.full}]:[]});
+  legend(document.getElementById('lExt'),[{name:NAME.suffix,color:C.suffix},{name:NAME.bm25_topk,color:C.bm25_topk},{name:'random',color:C.random},{name:'full ceiling',color:C.full}]);
+}
+function renderInt(){
+  const it=DATA.pareto&&DATA.pareto.intrinsic; if(!it)return;
+  const methods=['suffix','bm25_topk','tfidf_topk','random'];
+  const series=methods.map(mm=>({name:NAME[mm],color:C[mm],points:it[mm].map(r=>[r.avg_tokens,r.recall])}));
+  draw(document.getElementById('cInt'),{series,xlog:true,ymin:0,ymax:1,xlabel:'tokens sent (log)',ylabel:'gold-fact recall',
+    xticks:[60,120,240],xfmt:v=>Math.round(v)});
+  legend(document.getElementById('lInt'),methods.map(mm=>({name:NAME[mm],color:C[mm]})));
+}
+function renderAuc(){
+  const s=DATA.pareto&&DATA.pareto.scorer; if(!s)return;
+  const bars=[['learned',s.learned_auc,C.suffix],['bm25',s.bm25_auc,C.bm25_topk],['tfidf',s.tfidf_auc,C.tfidf_topk]];
+  const cv=document.getElementById('cAuc'),c=cv.getContext('2d');
+  const dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;cv.width=W*dpr;cv.height=H*dpr;c.scale(dpr,dpr);c.clearRect(0,0,W,H);
+  const base=0.5,top=0.95,bw=90,gap=40,x0=70;
+  c.strokeStyle='#23262e';c.fillStyle='#7d838c';c.font='10px sans-serif';
+  for(let i=0;i<=3;i++){const v=base+(top-base)*i/3,py=H-30-(v-base)/(top-base)*(H-50);c.beginPath();c.moveTo(40,py);c.lineTo(W-10,py);c.stroke();c.fillText(v.toFixed(2),8,py+3);}
+  bars.forEach((b,i)=>{const x=x0+i*(bw+gap),h=(b[1]-base)/(top-base)*(H-50),py=H-30-h;
+    c.fillStyle=b[2];c.fillRect(x,py,bw,h);
+    c.fillStyle='#e8eaed';c.font='bold 13px sans-serif';c.textAlign='center';c.fillText(b[1].toFixed(3),x+bw/2,py-6);
+    c.fillStyle='#9aa0a8';c.font='11px sans-serif';c.fillText(b[0],x+bw/2,H-12);c.textAlign='left';});
+}
+function renderRed(){
+  const r=DATA.redundancy; if(!r){return;}
+  const mk=(m,nm,col)=>({name:nm,color:col,points:r.levels.map((L,i)=>[L,r.recall[m][i]])});
+  const series=[mk('suffix','ours (dedup)',C.suffix),mk('no_coverage','no dedup (ablation)',C.no_coverage),mk('bm25_topk','BM25',C.bm25_topk)];
+  draw(document.getElementById('cRed'),{series,ymin:0,ymax:0.7,xlabel:'duplicate copies injected (R)',ylabel:'gold-fact recall',
+    xticks:r.levels,xfmt:v=>v});
+  legend(document.getElementById('lRed'),[{name:'ours (dedup)',color:C.suffix},{name:'no dedup (ablation)',color:C.no_coverage},{name:'BM25',color:C.bm25_topk}]);
+}
+document.getElementById('emf1').addEventListener('click',e=>{
+  if(e.target.dataset.k){EXT_METRIC=e.target.dataset.k;[...e.currentTarget.children].forEach(b=>b.classList.toggle('on',b.dataset.k===EXT_METRIC));renderExt();}
+});
+
+// ---------- tabs + use cases ----------
+document.getElementById('tabsNav').addEventListener('click', e=>{
+  const t=e.target.dataset.tab; if(!t)return;
+  [...e.currentTarget.children].forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
+  document.getElementById('tab-bench').style.display=t==='bench'?'':'none';
+  document.getElementById('tab-usecases').style.display=t==='usecases'?'':'none';
+  if(t==='usecases'&&!window._ucLoaded){loadUsecases();window._ucLoaded=true;}
+});
+async function loadUsecases(){
+  const list=await (await fetch('/api/usecases')).json();
+  const el=document.getElementById('ucList');
+  el.innerHTML=list.map(s=>`<div class="uccard" data-id="${s.id}"><h4>${esc(s.title)} ${s.mode==='lossless'?'<span style="color:var(--acc);font-size:10px;border:1px solid var(--line);border-radius:6px;padding:1px 6px;vertical-align:2px">LOSSLESS</span>':''}</h4><div class="muted" style="font-size:12px">${esc(s.blurb)}</div></div>`).join('');
+  el.querySelectorAll('.uccard').forEach(c=>c.addEventListener('click',()=>runUsecase(c.dataset.id)));
+}
+async function runUsecase(id,customq){
+  document.querySelectorAll('.uccard').forEach(c=>c.classList.toggle('sel',c.dataset.id===id));
+  const out=document.getElementById('ucOut');
+  out.innerHTML='<div class="card"><span class="muted">Running live — compressing, then asking the reader on full vs compressed input…</span></div>';
+  const url='/api/usecase?id='+id+(customq&&customq.trim()?'&customq='+encodeURIComponent(customq.trim()):'');
+  let d; try{ d=await (await fetch(url)).json(); }catch(e){ out.innerHTML='<div class="card warnc">error: '+e+'</div>'; return; }
+  if(d.error){out.innerHTML='<div class="card warnc">'+esc(d.error)+'</div>';return;}
+  const side=(label,o)=>{
+    const ok=o.correct?'<span style="color:var(--good);font-weight:700">✓ correct</span>':'<span style="color:var(--bad);font-weight:700">✗ wrong</span>';
+    const win=(o===d.mcpzip);
+    return `<div class="side ${win?'win':''}"><div class="muted" style="font-size:12px">${label}</div>
+      <div class="big" style="${win?'color:var(--good)':''}">${o.tokens.toLocaleString()} <span class="muted" style="font-size:13px;font-weight:400">tokens</span></div>
+      <div class="muted" style="font-size:11px;margin-top:3px">⏱ ${o.latency_ms.toLocaleString()} ms response &nbsp;·&nbsp; $${o.cost_per_1M.toLocaleString()} / 1M queries <span title="input-token cost priced at Opus 4.8 ($5/Mtok); the live reader is Haiku">(if served by Opus 4.8)</span></div>
+      <div style="margin-top:10px"><span class="muted" style="font-size:11px">answer:</span> <b>${esc(o.answer)}</b> &nbsp;${ok}</div>
+      <div class="ctxprev">${esc(o.preview)}…</div></div>`;
+  };
+  // denoise ('compressed right where full was wrong') only counts for LOSSY prose, where
+  // dropping distractors can genuinely help. Lossless mode carries identical info, so we
+  // never brand it a "win"; voice free-text is too noisy to claim it.
+  const denoise=(!d.lossless && !d.deepgram && d.mcpzip.correct && !d.normal.correct);
+  const barLabel='compressed';
+  const mlabel=d.lossless?'compressed · lossless codec':'compressed · extractive';
+  const dg=d.deepgram?`<span style="color:var(--acc2);font-size:11px;border:1px solid var(--line);border-radius:6px;padding:2px 8px">🎙️ transcript via Deepgram STT · ${d.deepgram.turns} turns · ${d.deepgram.stt_model}</span> `:'';
+  const sm=d.mcp?d.mcp.scenario_mode:null;
+  const mc=d.mcp?`<span style="color:var(--acc2);font-size:11px;border:1px solid var(--line);border-radius:6px;padding:2px 8px">🔌 live MCP call · ${esc(d.mcp.server)} · ${esc(d.mcp.tool)} · ${sm==='lossless'?'lossless codec (byte-exact)':'extractive (query-conditioned)'}</span> `:'';
+  const decl=d.mcp?d.mcp.trajectory.filter(t=>t.server==='filesystem'||t.server==='git'):[];
+  const mcpTraj=(d.mcp&&decl.length)?`<div class="ctxprev" style="max-height:none">honesty check — also called real MCP servers where the codec correctly does nothing: ${decl.map(t=>`<b>${t.server}/${t.tool}</b> → <span class="muted">codec declined (low redundancy)</span>`).join(' · ')}</div>`:'';
+  const playBtn=d.deepgram?`<button class="ghost" id="playAns" style="margin-left:8px">🔊 Play the compressed answer (Deepgram TTS)</button>`:'';
+  let tail;
+  if(d.lossless){
+    tail=', <span class="ok">zero information lost — byte-exact</span>. Identical information, so the answer is preserved'
+      +((d.mcpzip.correct&&!d.normal.correct)?' — here the verbose full JSON even tripped the reader into miscounting; the compact form is easier to parse (same underlying data).':'.');
+  } else if(denoise){ tail=' — the selector kept the answer-bearing spans and dropped distractors.'; }
+  else if(d.mcp){ tail=' — query-conditioned extractive (verbatim spans, lossy); the compressed answer <b class="ok">agrees with the full-context answer</b>.'; }
+  else { tail=d.mcpzip.correct?', same correct answer.':'.'; }
+  const latNote=d.deepgram?` Response latency this run ${d.normal.latency_ms}→${d.mcpzip.latency_ms} ms (indicative — varies by load; fewer input tokens ⇒ generally faster & cheaper).`:'';
+  out.innerHTML=`<div class="card">
+    <h3 style="margin:0 0 4px">${esc(d.title)}</h3>
+    <div class="note" style="margin:0 0 8px">${dg}${mc}${esc(d.blurb)}</div>
+    ${mcpTraj}
+    <div style="margin:8px 0"><span class="muted" style="font-size:12px">question:</span> <b>${esc(d.question)}</b> <span class="muted">· ${d.custom?'reference (full-context answer)':'gold'}:</span> <b style="color:var(--acc)">${esc(d.gold)}</b>${d.custom?' <span class="note">(your question — compressed answer scored against the full-context answer)</span>':''}</div>
+    <div style="margin:12px 0 4px"><div class="muted" style="font-size:11px;margin-bottom:5px">tokens sent to the LLM</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><span class="muted" style="width:58px;font-size:11px">normal</span><div style="flex:1;height:20px;background:#2a2e37;border-radius:6px;position:relative"><div style="width:100%;height:100%;background:#4a3f6b;border-radius:6px"></div><span style="position:absolute;right:8px;top:0;line-height:20px;font-size:11.5px;font-weight:700">${d.normal.tokens.toLocaleString()}</span></div></div>
+      <div style="display:flex;align-items:center;gap:8px"><span class="muted" style="width:58px;font-size:11px">${barLabel}</span><div style="flex:1;height:20px;background:#2a2e37;border-radius:6px;position:relative"><div style="width:${Math.max(4,Math.round(100*d.mcpzip.tokens/d.normal.tokens))}%;height:100%;background:var(--good);border-radius:6px"></div><span style="position:absolute;left:8px;top:0;line-height:20px;font-size:11.5px;font-weight:700;color:#04211c">${d.mcpzip.tokens.toLocaleString()}</span></div></div>
+    </div>
+    <div class="vs">${side('NORMAL · full input',d.normal)}${side(mlabel,d.mcpzip)}</div>
+    <div class="note" style="margin-top:12px"><b class="ok">${d.mcpzip.reduction_pct}% fewer tokens (${d.mcpzip.compression_x}×)</b>${tail}${latNote} Live reader: ${d.reader}. ${playBtn}</div>
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <span class="muted" style="font-size:12px">🧪 your turn:</span>
+      <input id="ucq" value="${esc(d.question)}" style="flex:1;min-width:240px;background:#0e0f13;border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:8px 10px;font-size:13px"/>
+      <button class="go" id="ucRun">Ask this live ▶</button>
+      <button class="ghost" id="ucAgain">↻ re-run</button>
+    </div>
+  </div>`;
+  const pb=document.getElementById('playAns');
+  if(pb)pb.addEventListener('click',()=>{pb.textContent='🔊 playing…';new Audio('/api/tts?text='+encodeURIComponent(d.mcpzip.answer)).play().catch(()=>{});setTimeout(()=>pb.textContent='🔊 Play the compressed answer (Deepgram TTS)',3000);});
+  document.getElementById('ucRun').addEventListener('click',()=>runUsecase(id,document.getElementById('ucq').value));
+  document.getElementById('ucAgain').addEventListener('click',()=>runUsecase(id,customq));
+}
+
+// ---------- prove it live ----------
+const proveBtn=document.getElementById('proveBtn');
+proveBtn.addEventListener('click',async()=>{
+  const i=Math.floor((DATA&&DATA.pareto?DATA.pareto.meta.n_test:300)*Math.random());
+  proveBtn.textContent='Asking Claude…'; proveBtn.disabled=true;
+  document.getElementById('proveOut').innerHTML='<span class="muted">compressing 5×, then asking the frozen reader on full vs compressed context…</span>';
+  try{
+    const d=await (await fetch('/api/prove?i='+i+'&budget=240')).json();
+    if(d.error){document.getElementById('proveOut').innerHTML='<span class="warnc">'+d.error+'</span>';}
+    else renderProve(d);
+  }catch(e){document.getElementById('proveOut').innerHTML='<span class="warnc">error: '+e+'</span>';}
+  proveBtn.textContent='▶ Run on another random question'; proveBtn.disabled=false;
+});
+function col(label,o,gold){
+  const ok=o.em>=1?'✓':(o.f1>=0.5?'≈':'✗');
+  const cls=o.em>=1?'good':(o.f1>=0.5?'warnc':'bad');
+  return `<div style="flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px">
+    <div class="muted" style="font-size:12px">${label}</div>
+    <div style="font-size:22px;font-weight:700">${o.tokens} <span class="muted" style="font-size:13px">tokens${o.compression_x?' · '+o.compression_x+'× smaller':''}</span></div>
+    <div style="margin-top:8px"><span class="muted" style="font-size:11px">answer</span><br><b>${esc(o.answer)}</b>
+    <span style="color:var(--${cls});font-weight:700;font-size:18px"> ${ok}</span></div>
+    <div class="muted" style="font-size:11px;margin-top:4px">EM=${o.em} · F1=${o.f1}</div></div>`;
+}
+function renderProve(d){
+  document.getElementById('proveOut').innerHTML=
+    `<div style="margin-bottom:10px"><span class="muted" style="font-size:12px">held-out question (${d.type})</span><br><b>${esc(d.question)}</b>
+       <span class="muted"> · gold answer:</span> <b style="color:var(--acc)">${esc(d.gold)}</b></div>
+     <div style="display:flex;gap:14px">${col('FULL CONTEXT',d.full)}${col('COMPRESSED',d.compressed)}</div>
+     <div class="note" style="margin-top:8px">${d.compressed.em>=1&&d.full.em>=1?'<span class="ok">Same correct answer at '+d.compressed.compression_x+'× fewer tokens — live.</span>':'Reader: '+d.reader+' · scored against the gold answer.'}</div>`;
+}
+
+// ---------- live compressor ----------
+const budget=document.getElementById('budget');
+budget.addEventListener('input',()=>document.getElementById('bval').textContent=budget.value);
+let HERO=null;
+async function loadHero(){
+  const j=await (await fetch('/api/hero')).json();
+  HERO=j.bundle;
+  document.getElementById('task').value=j.bundle.task;
+  document.getElementById('raw').value=JSON.stringify(j.bundle.context,null,2);
+  render(j.result);
+  document.getElementById('liveNote').innerHTML='Loaded MCP bundle: GitHub issue+comments, Slack thread, source file, CI logs.';
+}
+document.getElementById('loadHero').addEventListener('click',loadHero);
+const DOC_EXAMPLE=`Northwind Logistics was founded in 1971 in Akron, Ohio, originally as a regional trucking firm.
+For its first two decades the company focused almost entirely on automotive parts distribution across the Midwest.
+In 1994 a new CEO, Patricia Hale, took over and began diversifying into cold-chain and pharmaceutical freight.
+The company went public in 2001 and expanded to the West Coast through the acquisition of BayHaul in 2004.
+A major turning point came in 2016, when Northwind committed to powering its entire fleet and warehouses with renewable energy.
+That renewable-energy transition was led by the then-COO, Marcus Greene, who later became CEO in 2019.
+By 2022 the company operated 38 distribution centers and a fleet of roughly 4,200 vehicles.
+Northwind's headquarters remains in Akron, though most engineering staff now work from a Denver office opened in 2018.
+The company's stock is listed under the ticker NWL and is a component of several mid-cap logistics indices.
+Critics note that the 2016 renewable pledge initially raised costs, but margins recovered by 2020.`;
+const CHAT_EXAMPLE=`agent: Hi! Thanks for contacting Acme support. How can I help today?
+user: My deployment keeps failing on the staging environment.
+agent: Sorry to hear that. Can you share the error you see?
+user: It says 'database migration timeout after 30s'.
+agent: Got it. Which database version are you on?
+user: We're on Postgres 14.2, upgraded last week from 13.
+agent: Thanks. Is this on the shared cluster or a dedicated instance?
+user: Dedicated, the db-prod-7 instance in us-east.
+agent: And how large is the migration — number of rows affected?
+user: It's altering the orders table, about 48 million rows.
+agent: That's the likely cause. Large ALTERs on 48M rows exceed the 30s statement timeout.
+user: Ah. Can we raise the timeout?
+agent: Yes — set statement_timeout to 0 for the migration session, or run it as a batched online migration.
+user: Let's do the batched approach. Any tool you recommend?
+agent: pg-osc or a gh-ost-style online schema change works well for tables this size.
+user: Great, thanks!`;
+const CODE_EXAMPLE=`// app/auth/verify-email/page.tsx
+export default function VerifyEmail() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const redirectTo = params.get("redirect_to"); // captured at signup start
+  useEffect(() => {
+    confirmToken().then((ok) => {
+      if (!ok) { setError("Verification failed"); return; }
+      // BUG: hard-coded push throws away redirectTo, so deep links are lost
+      router.push("/dashboard");
+    });
+  }, []);
+  return <Spinner label="Verifying your email…" />;
+}
+// utils/redirect.ts
+export function safeRedirect(target: string) {
+  // only allow internal, whitelisted paths — never open redirects
+  if (!target.startsWith("/") || target.startsWith("//")) return "/dashboard";
+  return target;
+}
+// app/signup/page.tsx
+export default function Signup() {
+  const redirectTo = useSearchParams().get("redirect_to") ?? "/dashboard";
+  return <SignupForm onDone={() => persistPendingRedirect(redirectTo)} />;
+}`;
+const LOG_EXAMPLE=`2026-06-21T10:00:01Z INFO  request handled status=200 path=/api/orders latency=12ms
+2026-06-21T10:00:01Z INFO  request handled status=200 path=/api/orders latency=11ms
+2026-06-21T10:00:02Z WARN  cache miss key=user:session:4821
+2026-06-21T10:00:02Z INFO  request handled status=200 path=/api/cart latency=9ms
+2026-06-21T10:00:03Z ERROR upstream timeout on payments-svc after 30000ms reqid=ab12
+2026-06-21T10:00:03Z INFO  request handled status=200 path=/api/orders latency=10ms
+2026-06-21T10:00:04Z ERROR upstream timeout on payments-svc after 30000ms reqid=ab19
+2026-06-21T10:00:04Z WARN  rate limit near threshold client=mobile-ios
+2026-06-21T10:00:05Z INFO  request handled status=200 path=/api/cart latency=8ms
+2026-06-21T10:00:06Z ERROR database migration timeout after 30s table=orders rows=48000000
+2026-06-21T10:00:07Z INFO  request handled status=200 path=/api/orders latency=12ms
+2026-06-21T10:00:08Z WARN  cache miss key=user:session:9920`;
+const PRESETS={
+  doc:['When did Northwind switch to renewable energy and who led it?',()=>DOC_EXAMPLE,120],
+  chat:['How many rows are on the orders table being migrated?',()=>CHAT_EXAMPLE,120],
+  code:['Where is the redirect_to / deep link being dropped, and what is the fix?',()=>CODE_EXAMPLE,120],
+  log:['Which service is timing out, and what caused the database migration error?',()=>LOG_EXAMPLE,80],
+};
+document.querySelectorAll('[data-preset]').forEach(btn=>btn.addEventListener('click',()=>{
+  const [task,getText,bud]=PRESETS[btn.dataset.preset];
+  document.getElementById('task').value=task;
+  document.getElementById('raw').value=getText();
+  document.getElementById('budget').value=bud;document.getElementById('bval').textContent=bud;
+  runCompress();
+}));
+
+async function runCompress(){
+  const task=document.getElementById('task').value;
+  const raw=document.getElementById('raw').value.trim();
+  let body={task,budget:+budget.value};
+  try{const o=JSON.parse(raw); if(o&&typeof o==='object'){body.json_input=o;} else {body.text=raw;}}
+  catch(e){body.text=raw;}
+  document.getElementById('run').textContent='Compressing…';
+  const r=await (await fetch('/api/compress',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+  document.getElementById('run').textContent='Compress ▶';
+  render(r);
+}
+document.getElementById('run').addEventListener('click',runCompress);
+
+function render(r){
+  const x=r.compression_x?r.compression_x.toFixed(1)+'×':'—';
+  if(r.status){
+    document.getElementById('bignum').innerHTML=`<div style="flex:1"><span class="warnc">${esc(r.status)}</span></div>`;
+    document.getElementById('needs').innerHTML=''; document.getElementById('spans').innerHTML='';
+    document.getElementById('liveNote').innerHTML=''; return;
+  }
+  document.getElementById('bignum').innerHTML=
+    `<div><b>${r.raw_tokens}</b><span class="muted">raw tokens</span></div>
+     <div><b class="red">${r.kept_tokens}</b><span class="muted">kept tokens</span></div>
+     <div><b class="red">${r.reduction_pct.toFixed(0)}%</b><span class="muted">${x} smaller</span></div>`;
+  document.getElementById('needs').innerHTML=(r.covered_needs||[]).map(n=>`<span class="${n.covered?'y':'n'}">${n.covered?'✓':'○'} ${n.anchor}</span>`).join('')||'<span class="muted">—</span>';
+  const spans=r.units.slice().sort((a,b)=>b.kept-a.kept||b.score-a.score);
+  document.getElementById('spans').innerHTML=spans.map(u=>
+    `<div class="span ${u.kept?'keep':'drop'}"><span class="sc">${u.score.toFixed(2)}</span> ${esc(u.text)}<div class="meta">${u.kept?'KEPT':'drop'} · ${esc(u.title||'')} · ${esc(u.source||'')} · ${u.tokens}t</div></div>`).join('');
+  let note='';
+  if(r.structural&&r.structural.saved_tokens>0) note+=`Lossless structural codec: −${r.structural.saved_tokens} tok via ${r.structural.n_refs} refs (round-trip verified). `;
+  note+=`Selected ${r.n_kept}/${r.n_units} spans. Every kept <b>span</b> is verbatim from source; section headers are added for readability.`;
+  document.getElementById('liveNote').innerHTML=note;
+}
+function esc(s){return (s||'').replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}
+
+boot();
+if(location.hash==='#hero'){loadHero();}
+if(location.hash.indexOf('#usecases')===0){document.querySelector('.tabbtn[data-tab=usecases]').click();
+  const which=location.hash.split(':')[1]||'tool';
+  setTimeout(()=>runUsecase(which),600);}
+window.addEventListener('resize',()=>{if(DATA){renderExt();renderInt();renderAuc();renderRed();renderAbl();renderEcon();}});
+</script>
+</body>
+</html>
