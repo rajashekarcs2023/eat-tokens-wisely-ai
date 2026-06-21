@@ -60,6 +60,31 @@ def test_roundtrip_exact():
         assert decode(enc) == obj, f"round-trip failed for {obj!r}"
 
 
+def test_fuzz_roundtrip_4000():
+    """4,000 randomized nested structures — with the codec's own sentinel tokens injected
+    as both keys and values — must all round-trip byte-exact (deterministic by seed)."""
+    import random
+
+    sentinels = ["@R", "REF#", "<<R", "~REF~", "§SUB§", "@@SUB@@", "<<SUBREF>>",
+                 "~~SUBREF~~", "~SREF0~", "~~SUBREF0~~"]
+
+    def gen(depth, r):
+        if depth > 4:
+            return r.choice([1, "x", r.choice(sentinels)])
+        t = r.random()
+        if t < 0.3:
+            return {r.choice(["a", "b"] + sentinels): gen(depth + 1, r) for _ in range(r.randint(0, 3))}
+        if t < 0.5:
+            return [gen(depth + 1, r) for _ in range(r.randint(0, 4))]
+        if t < 0.7:
+            return r.choice(sentinels) + r.choice(["", " val", "0"])
+        return r.choice([1, 2.5, True, None, "plain"])
+
+    for i in range(4000):
+        obj = gen(0, random.Random(i))
+        assert decode(encode(obj)) == obj, f"fuzz round-trip failed at seed {i}: {obj!r}"
+
+
 def test_reports_savings_on_repetitive_json():
     rep = structural_report(_mcp_bundle())
     assert rep["lossless_verified"] is True
@@ -69,5 +94,6 @@ def test_reports_savings_on_repetitive_json():
 
 if __name__ == "__main__":
     test_roundtrip_exact()
+    test_fuzz_roundtrip_4000()
     test_reports_savings_on_repetitive_json()
     print("OK structural")
