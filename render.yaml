@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: eat-tokens-wisely
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements-server.txt
+    startCommand: uvicorn server.app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      # Set these as secrets in the Render dashboard (sync:false keeps them out of git).
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: DEEPGRAM_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: "3.12.4"

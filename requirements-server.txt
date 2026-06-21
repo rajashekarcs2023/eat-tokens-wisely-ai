@@ -1,0 +1,10 @@
+# Slim runtime deps for the hosted server (no `datasets` — that's only for
+# offline data prep). `requests` is needed by the Deepgram TTS endpoint.
+scikit-learn==1.9.0   # must match the version data/keep_scorer.joblib was pickled with
+numpy
+scipy
+tiktoken
+anthropic>=0.40
+requests
+fastapi
+uvicorn[standard]
