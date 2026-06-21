@@ -7,7 +7,7 @@ A context-compression layer for LLMs and agents. It shrinks the context you send
 
 There is **no LLM in the compression path** — it is scikit-learn plus string operations, deterministic, and runs with the model API key unset. An LLM (`claude-haiku-4-5`, temperature 0) is used only as a frozen *reader* to measure whether the compressed context still yields the right answer, scored against gold labels with exact-match / token-F1 — never an LLM judge.
 
-> **Interactive architecture page:** [open the explainer](https://htmlpreview.github.io/?https://github.com/rajashekarcs2023/eat-tokens-wisely-ai/blob/main/web/architecture.html) (static render; run the server for live numbers — see [Run it](#run-it)). It is also served at `/architecture`.
+> **Interactive architecture explainer:** run the server and open **`/architecture`** (or the file [`web/architecture.html`](web/architecture.html)) — a one-page visual walkthrough of the design, the results with confidence intervals, and the two null results.
 
 ---
 
@@ -88,7 +88,13 @@ The reader is `claude-haiku-4-5`, `max_tokens=32`, `temperature=0`, with a fixed
 
 ## Results
 
-All downstream numbers use the frozen reader on **HotpotQA distractor** (`data/pareto_v2.json`, n = 150, budgets 120/240, paired-bootstrap CIs, n = 2000). Token counts use `tiktoken` `cl100k_base` as a **stable ratio ruler** — it undercounts real Claude tokens ~15–20%, so absolute counts are approximate and **ratios are the reported metric**.
+### Benchmark setup
+- **Datasets.** HotpotQA distractor (intrinsic n = 300 / downstream ablation n = 150); cross-task on SQuAD, CoQA, 2WikiMultiHopQA, NarrativeQA (n = 60–100); the lossless codec on 12 generated GitHub-issue tool-output bundles (n = 60 Q/A).
+- **Reader.** `claude-haiku-4-5`, `temperature=0`, `max_tokens=32`, one neutral prompt held identical across the full and compressed arms — a measurement instrument, never a judge.
+- **Metrics.** SQuAD-style EM and token-F1 (`squad_em` / `squad_f1`); supporting-fact precision/recall/F1 for the intrinsic (API-free) arm. No LLM judge anywhere.
+- **Confidence intervals.** Paired bootstrap on per-example F1 differences (n = 2000 resamples, seed 0); "clears 0" means the 95% CI excludes zero.
+- **Baselines** (same harness, same budget): full context (ceiling), random (floor), TF-IDF top-k, **BM25 top-k** (Okapi, k1 = 1.5, b = 0.75), no-coverage (scorer top-k, dedup off), no-scorer (uniform relevance).
+- **Tokenizer.** `tiktoken cl100k_base` as a stable ratio ruler (undercounts Claude ~15–20%); **ratios are the reported metric**, absolute counts approximate.
 
 ### Extractive compression vs. baselines (answer F1 @ ~237 tokens)
 | condition | tokens | EM | F1 | retained |
@@ -209,6 +215,22 @@ bash scripts/build_all.sh   # prepare_data → train_scorer → run_eval → run
 - **Lossy ≠ lossless on QA.** Extractive compression costs F1 versus full context on QA (CI excludes 0). Only the structural JSON codec is byte-exact / EM-preserving.
 - **Two headline hypotheses are null** (reader-grounded labels, learned variable-rate) — reported, not hidden.
 - **Structural QA** is a small constructed test (12 bundles, n = 60).
+
+## Foundations & related work
+We use the datasets and the BM25 baseline directly, and benchmark against the query-agnostic compression paradigm. How our design relates to prior work:
+
+**Context compression**
+- **LLMLingua-2** — Pan et al., *Data Distillation for Efficient and Faithful Task-Agnostic Prompt Compression*, Findings of ACL 2024 ([arXiv:2403.12968](https://arxiv.org/abs/2403.12968)). The query-agnostic, distillation-based token-classification paradigm; our `B` ablation represents this approach, which our query-conditioned selector beats by +0.29 F1 (CI clears 0). See also LLMLingua (Jiang et al., EMNLP 2023).
+- **RECOMP** — Xu, Shi & Choi, *Improving Retrieval-Augmented LMs with Context Compression and Selective Augmentation*, ICLR 2024 ([arXiv:2310.04408](https://arxiv.org/abs/2310.04408)). Extractive + abstractive compression for RAG.
+- **FILCO** — Wang, Araki, Jiang, Parvez & Neubig, *Learning to Filter Context for Retrieval-Augmented Generation*, 2023 ([arXiv:2311.08377](https://arxiv.org/abs/2311.08377)). Learned context filtering on lexical/information-theoretic utility — closest to our reader-grounded-label experiment, which we report as a **null result**.
+
+**Selection & retrieval**
+- **BM25** — Robertson & Zaragoza, *The Probabilistic Relevance Framework: BM25 and Beyond*, 2009 — our lexical baseline.
+- **MMR** (Carbonell & Goldstein, SIGIR 1998) and **submodular selection** (Lin & Bilmes, ACL 2011) — diversity-aware selection. Our near-duplicate suppression is a restricted form; we deliberately avoid a general MMR penalty, which we measured to hurt a second supporting fact that shared an entity with the first.
+
+**Datasets & protocol**
+- HotpotQA (Yang et al., 2018), SQuAD (Rajpurkar et al., 2016), CoQA (Reddy et al., 2019), 2WikiMultiHopQA (Ho et al., 2020), NarrativeQA (Kočiský et al., 2018).
+- Model Context Protocol (Anthropic, 2024) — Context7, Perplexity, SQLite, filesystem, and git servers.
 
 ## Built with
 Python · scikit-learn · NumPy/SciPy · tiktoken · FastAPI/uvicorn · Anthropic Claude (Haiku reader) · Deepgram · Model Context Protocol (Context7, Perplexity, SQLite, filesystem, git)
