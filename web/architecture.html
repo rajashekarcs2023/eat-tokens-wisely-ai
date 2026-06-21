@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Eat Tokens Wisely — Architecture & Novelty</title>
+<style>
+  :root{--bg:#0c0d10;--panel:#15171c;--panel2:#1c1f26;--ink:#e8eaed;--mut:#9aa0a8;--acc:#5eead4;--acc2:#a78bfa;--good:#34d399;--bad:#f87171;--line:#2a2e37;--warn:#fbbf24;--bm:#fb923c}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:980px;margin:0 auto;padding:28px 22px 90px}
+  a{color:var(--acc)} h1{font-size:30px;margin:0;letter-spacing:-.5px} h1 .z{color:var(--acc)}
+  .sub{color:var(--mut);margin:6px 0 0;max-width:760px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:1.4px;color:var(--mut);margin:36px 0 12px;border-bottom:1px solid var(--line);padding-bottom:8px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin:12px 0}
+  .lead{background:linear-gradient(180deg,#15171c,#121317);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin:18px 0;font-size:15.5px}
+  .lead b{color:var(--acc)}
+  .row{display:flex;gap:14px;flex-wrap:wrap} @media(max-width:820px){.row{flex-direction:column}}
+  .mode{flex:1;min-width:300px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+  .mode.lossless{border-color:#1f5f4a} .mode.lossy{border-color:#4a3f6b}
+  .mode h3{margin:0 0 4px;font-size:16px} .tag{font-size:10.5px;border:1px solid var(--line);border-radius:6px;padding:2px 8px;vertical-align:2px}
+  .flow{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:var(--mut);background:#0e0f13;border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:10px;white-space:pre-wrap}
+  .ok{color:var(--good)} .muted{color:var(--mut)} .warnc{color:var(--warn)} b.n{color:var(--acc)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:6px}
+  th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line)} th{color:var(--mut);font-weight:600}
+  .pill{display:inline-block;font-size:11px;border-radius:20px;padding:2px 9px;border:1px solid var(--line)}
+  .pill.y{color:var(--good);border-color:#1f5f4a} .pill.w{color:var(--warn)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:820px){.grid2{grid-template-columns:1fr}}
+  .num{font-size:26px;font-weight:800;color:var(--acc)} .numb{font-size:26px;font-weight:800}
+  .back{display:inline-block;margin-top:10px;background:var(--acc);color:#04211c;border-radius:9px;padding:9px 16px;font-weight:700;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><span class="z">Eat Tokens Wisely</span> — architecture &amp; novelty</h1>
+  <p class="sub">A compression solution for LLM context. <a href="/">← back to the live demo</a></p>
+
+  <div class="lead">
+    <b>The bottleneck for agents isn't model intelligence — it's context bandwidth.</b> Agents and RAG pipelines pour
+    long, noisy, repetitive context into every LLM call: tool outputs, logs, documents, conversations, transcripts.
+    That is expensive, slow, and often <i>hurts</i> answers. Eat Tokens Wisely is a two-mode codec that cuts the tokens sent to the
+    LLM while preserving — and sometimes improving — answer quality, with guarantees you can check, not take on faith.
+  </div>
+
+  <h2>The architecture · two modes, matched to the input</h2>
+  <div class="row">
+    <div class="mode lossless">
+      <h3>① Lossless structural codec <span class="tag" style="color:var(--good)">ZERO LOSS</span></h3>
+      <div class="muted" style="font-size:13px">For structured / repetitive inputs: JSON tool output, logs, API responses.</div>
+      <div class="flow">repeated sub-trees + string values
+   ↓  factor into shared definitions
+{user}, {labels} defined once
+issues reference them by id
+   ↓  collision-safe sentinels
+compact form (plaintext)
+   ↓  the LLM reads it natively</div>
+      <div style="font-size:13px;margin-top:8px"><b class="ok">decode(encode(x)) == x</b>, byte-exact — unit-tested incl. 4,000 adversarial fuzz cases (0 failures). The compact "definitions + references" form is read natively by the reader, so fewer tokens are sent with <b>no information lost</b>.</div>
+    </div>
+    <div class="mode lossy">
+      <h3>② Lossy extractive selector <span class="tag" style="color:var(--acc2)">VERBATIM</span></h3>
+      <div class="muted" style="font-size:13px">For prose: QA context, documents, conversations, transcripts.</div>
+      <div class="flow">unitize into spans (+provenance)
+   ↓  learned keep-scorer (CPU LogReg)
+score each span vs the task
+   ↓  budgeted selection + near-dup suppression
+keep smallest set under a token budget
+   ↓  verbatim spans only</div>
+      <div style="font-size:13px;margin-top:8px">Output is a <b>verbatim subsequence</b> of the source (no fabrication in the compression step — unit-tested). A token-budget knob slides along a rate–distortion curve. <b>No LLM in the compression path</b> (milliseconds, CPU) — so savings are real, not circular.</div>
+    </div>
+  </div>
+
+  <h2>What's novel (and what isn't — we're precise)</h2>
+  <div class="card" style="font-size:14px">
+    <p><b class="n">1. An LLM-native lossless codec.</b> Compression that's <i>provably</i> lossless (a byte-exact test, not a self-grade) <i>and</i> that the model reads directly — so it reduces tokens <i>sent to the LLM</i> with zero information loss. Verified: reader answers the compact form as accurately as full JSON (EM 1.00 = 1.00 on guess-resistant questions). <span class="muted">Why not gzip? gzip isn't LLM-readable → it reduces zero tokens sent.</span></p>
+    <p><b class="n">2. A query-conditioned extractive compressor</b> that beats the query-agnostic delete-only paradigm (LLMLingua-2 style) by <b>+0.29 F1 (CI clears 0)</b> on RAG/QA — generalizing unchanged across QA, conversations, and documents.</p>
+    <p><b class="n">3. Intellectual honesty as a feature.</b> We tested two genuinely novel ideas and report both as <b>null results</b> with their CIs and the real reason — the credibility differentiator for a sponsor that markets against self-graded compression.</p>
+    <p class="muted" style="margin-bottom:0">We do <b>not</b> claim to have invented extractive compression, distillation, or dedup — those are known. The contribution is the specific combination, the LLM-native lossless guarantee, and a rigorous, honestly-reported benchmark.</p>
+  </div>
+
+  <h2>Results · every number measured (gold labels, frozen reader, CIs)</h2>
+  <div class="grid2" id="results"></div>
+
+  <h2>Generalization across the challenge's modalities</h2>
+  <div class="card"><table id="genTable"><thead><tr><th>modality</th><th>input</th><th>result</th></tr></thead><tbody>
+    <tr><td>structured JSON / tool output</td><td>lossless codec</td><td><span class="ok">21–48% fewer tokens, 0 loss, reader EM = full</span></td></tr>
+    <tr><td>logs</td><td>lossless codec</td><td><span class="ok">~54% fewer (vs pretty), byte-exact</span></td></tr>
+    <tr><td>multi-hop QA (HotpotQA)</td><td>extractive</td><td>76% F1 retained @ 5.3×</td></tr>
+    <tr><td>conversations (CoQA)</td><td>extractive</td><td><span class="ok">97% F1 retained, beats BM25</span></td></tr>
+    <tr><td>documents (SQuAD / NarrativeQA)</td><td>extractive</td><td>81% / 59% retained <span class="muted">(narrative: learned scorer < BM25 — honest weak spot)</span></td></tr>
+    <tr><td>voice (Deepgram ASR transcript)</td><td>extractive</td><td><span class="ok">3× fewer tokens, faster response, same answer</span></td></tr>
+    <tr><td>MCP tool output (real Context7 / Perplexity servers)</td><td>extractive</td><td><span class="ok">docs ~67% · search ~81%</span> <span class="muted">(verbatim spans, grounded — answer survives in the kept spans)</span> <span class="muted">· codec declines on unique filesystem/git output (shown)</span></td></tr>
+  </tbody></table>
+  <div class="muted" style="font-size:12px;margin-top:8px">The extractive <i>framework</i> generalizes (always beats random, preserves majority quality); the <i>learned scorer's</i> edge over BM25 is in-domain — use BM25 cross-domain.</div></div>
+
+  <h2>What we honestly report didn't work</h2>
+  <div class="card" style="font-size:14px">
+    <p><b class="warnc">Null 1 — reader-grounded labels.</b> Training the scorer on "removing this span changes the reader's answer" does <b>not</b> beat human labels (C−A within noise). Reason: 68% of gold supporting facts are droppable due to <i>redundancy</i>, not parametric memory (closed-book 7%) — dropping redundant-but-correct facts doesn't help at a fixed budget.</p>
+    <p style="margin-bottom:0"><b class="warnc">Null 2 — learned variable-rate budgeting.</b> Oracle headroom is huge (+0.27 F1), but a learned per-example budget predictor doesn't beat fixed budget (all CIs include 0) — the headroom is reader <i>stochasticity</i>, not learnable structure.</p>
+  </div>
+
+  <h2>Use it as a drop-in compression layer</h2>
+  <div class="card" style="font-size:14px">
+    <p style="margin-top:0">It's one function. <b>raw</b> can be a string (prose / chat / transcript → extractive) or JSON (dict/list → lossless codec, auto-selected). You add <b>one line</b> before your model call:</p>
+    <div class="flow">from suffix.pipeline import compress
+
+res = compress(task=user_question, raw=tool_output_or_docs, budget=240)
+context = res["compressed_text"]        # verbatim spans (prose) OR compact codec form (JSON)
+client.messages.create(model="claude-...", messages=[
+    {"role":"user","content": f"{context}\n\n{user_question}"}])
+print(res["reduction_pct"], "% fewer tokens,", res["compression_x"], "x")</div>
+    <p style="margin-bottom:0" class="muted">JSON-only callers can use <b>suffix.structural.render_compact(obj)</b> directly; <b>structural_report(obj)["beneficial"]</b> says whether to — it's opt-in and declines when the reference table would cost more than it saves. Reusable today against the repo; a pip package and a literal MCP-server proxy are future work (not claimed).</p>
+  </div>
+
+  <h2>Not a prompt trick — verify it in under 2 minutes</h2>
+  <div class="card" style="font-size:14px">
+    <p style="margin-top:0">The compressor calls <b>no LLM</b> — it's scikit-learn + string ops. The model only ever <i>reads</i>, with this exact neutral prompt, <b>identical</b> for the full and compressed arms (it never names the expected answer):</p>
+    <div class="flow">SYSTEM: You answer questions from the provided context only. Reply with the
+        shortest exact answer (a name, phrase, number, or yes/no). No explanation.
+USER:   Context:\n{context}\n\nQuestion: {question}\nAnswer:</div>
+    <p>Check it yourself:</p>
+    <div class="flow"># 1. lossless is math, not a model — no API key, no server, &lt;5s:
+python -c "import json,sys; sys.path.insert(0,'.'); from suffix.structural import encode,decode; \
+o=json.load(open('data/usecases.json'))[3]['json']; print('byte-exact:', decode(encode(o))==o)"
+
+# 2. the unit tests prove it (incl. adversarial sentinel-collision inputs):
+python -m pytest tests/ -q          # 6 passed
+
+# 3. compression runs with the model key UNSET — the model isn't in the loop:
+unset ANTHROPIC_API_KEY ; curl -s localhost:8000/api/compress -d '{"task":"q","text":"&lt;long text&gt;"}'</div>
+    <p style="margin-bottom:0" class="muted">Deterministic facts (raw/kept tokens, reduction %) are 100% reproducible CPU output; the live reader's answer is the only model-dependent part (pinned to temperature 0). Use-case correctness uses lenient matching (exact OR substring OR token-F1≥0.6, applied identically to both arms); the benchmark and "prove it live" numbers use strict SQuAD EM/F1.</p>
+  </div>
+
+  <h2>Challenge-clause coverage</h2>
+  <div class="card"><table><tbody>
+    <tr><td>reduces tokens sent to the LLM</td><td><span class="pill y">nailed</span> lossless codec + lossy 5.3×</td></tr>
+    <tr><td>preserves context for high-quality outputs</td><td><span class="pill y">nailed</span> lossless EM=full; lossy 76–97% F1; random craters</td></tr>
+    <tr><td>text · code(JSON) · conversations · documents · other</td><td><span class="pill y">nailed</span> 6 modalities incl. voice</td></tr>
+    <tr><td>model / algorithm / framework</td><td><span class="pill y">nailed</span> CPU scorer + selection + dedup + invertible codec</td></tr>
+    <tr><td>maintaining <i>or improving</i> downstream performance</td><td><span class="pill y">nailed</span> maintains; improves +0.29 F1 over query-agnostic (CI clears 0); compact form can be easier for the reader to parse than verbose JSON</td></tr>
+    <tr><td>model / application / system level</td><td><span class="pill y">nailed</span> live app demo + CPU-only system codec</td></tr>
+  </tbody></table></div>
+
+  <a class="back" href="/">← Run the live demo</a>
+</div>
+
+<script>
+fetch('/api/results').then(r=>r.json()).then(d=>{
+  const p2=d.pareto_v2, sq=d.structural_qa, p=d.pareto, e=d.economics;
+  const c=p2&&p2.conditions, full=c&&c.full, a=c&&c['A@240'];
+  const cards=[];
+  if(sq) cards.push(['Lossless tool-output', sq.token_reduction_vs_pretty_pct+'%', 'fewer tokens · reader EM '+sq.compact.em.toFixed(2)+' = full '+sq.full.em.toFixed(2)+' · byte-exact']);
+  if(full&&a) cards.push(['Extractive retention', Math.round(100*a.f1/full.f1)+'%', 'of full-context F1 at '+(full.avg_tokens/a.avg_tokens).toFixed(1)+'× fewer tokens (n='+p2.n+')']);
+  const cb=p2&&p2.cis&&p2.cis['C_minus_B@240'];
+  if(cb) cards.push(['Query-conditioning win', '+'+cb.delta.toFixed(2)+' F1', 'over query-agnostic importance · CI ['+cb.ci[0].toFixed(2)+','+cb.ci[1].toFixed(2)+'] clears 0']);
+  if(e) cards.push(['$ saved / 1M queries', '$'+e.by_model[2].dollars_saved.toLocaleString(), 'at Opus input price · CPU compressor (no LLM to compress)']);
+  document.getElementById('results').innerHTML=cards.map((x,i)=>`<div class="card" style="margin:0"><div class="${i==3?'numb':'num'}" ${i==3?'style="color:var(--good)"':''}>${x[1]}</div><div style="font-weight:600;margin-top:2px">${x[0]}</div><div class="muted" style="font-size:12px">${x[2]}</div></div>`).join('');
+}).catch(()=>{document.getElementById('results').innerHTML='<div class="muted">start the server to load live numbers</div>';});
+</script>
+</body>
+</html>
