@@ -1,0 +1,21 @@
+# secrets — NEVER commit (contains ANTHROPIC + DEEPGRAM keys)
+.env
+.env.*
+
+# python / tooling
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+.DS_Store
+
+# large regenerable raw caches (rebuilt by scripts/prepare_data.py).
+# Everything else in data/ (the small derived JSONs + keep_scorer.joblib +
+# hotpot_test.json that the server/demo need) IS committed so a fresh clone runs.
+data/hotpot_train.json
+data/downstream_raw.json
+context7mcp.nod
+
+# markdown notes — ignore all .md except README.md
+*.md
+!README.md
