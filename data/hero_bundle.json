@@ -1,32 +1,546 @@
 {
-  "task": "Fix the bug where new email signups lose the original deep link after the email verification step.",
+  "task": "Which issues are about the deep link being dropped after email verification?",
   "context": {
-    "github.get_issue": {
-      "number": 412,
-      "repository_url": "https://github.com/acme/web-app",
-      "html_url": "https://github.com/acme/web-app/issues/412",
-      "user": {"login": "pm-dana", "url": "https://github.com/pm-dana", "type": "User"},
-      "labels": [
-        {"name": "bug", "color": "d73a4a", "url": "https://github.com/acme/web-app/labels/bug"},
-        {"name": "auth", "color": "0e8a16", "url": "https://github.com/acme/web-app/labels/auth"}
-      ],
-      "title": "Deep link lost for new email signups",
-      "body": "Users who open a shared hackathon deep link and then create a new account with email end up on the generic dashboard instead of the original page. Deep link works fine for users who are already signed in, and for brand-new signups via Google. It only breaks for the email signup path. This started around the time we shipped the new email verification screen."
-    },
-    "github.list_comments": [
-      {"repository_url": "https://github.com/acme/web-app", "user": {"login": "eng-sam", "url": "https://github.com/eng-sam", "type": "User"}, "body": "Confirmed repro on staging. Already-authenticated users keep the deep link, so the router guard is fine."},
-      {"repository_url": "https://github.com/acme/web-app", "user": {"login": "eng-sam", "url": "https://github.com/eng-sam", "type": "User"}, "body": "Google OAuth signups also keep the deep link because the redirect_to param survives the OAuth callback round-trip."},
-      {"repository_url": "https://github.com/acme/web-app", "user": {"login": "qa-lee", "url": "https://github.com/qa-lee", "type": "User"}, "body": "+1, I can reproduce every time on the email path. Cleared cache, same result."},
-      {"repository_url": "https://github.com/acme/web-app", "user": {"login": "qa-lee", "url": "https://github.com/qa-lee", "type": "User"}, "body": "Tried in Firefox and Safari too, identical behavior. Not browser specific."},
-      {"repository_url": "https://github.com/acme/web-app", "user": {"login": "eng-sam", "url": "https://github.com/eng-sam", "type": "User"}, "body": "The email verification screen navigates with router.push('/dashboard') after the user clicks the verify link, which throws away whatever redirect_to query param we captured at signup start."},
-      {"repository_url": "https://github.com/acme/web-app", "user": {"login": "sec-ana", "url": "https://github.com/sec-ana", "type": "User"}, "body": "Whatever fix we ship, do not blindly redirect to an arbitrary URL. Only allow signed or whitelisted internal paths, otherwise we open an open-redirect vulnerability."}
-    ],
-    "slack.search": "thread #auth-bugs: dana: anyone know why the deep link dies on email signup? | sam: looking. it survives google but not email | sam: the verify-email page hard-codes a push to /dashboard | dana: lol classic | lee: standup at 10? | sam: yeah | dana: so we lose redirect_to during the verification hop | sam: exactly, we capture it at signup but never persist it across the email verification round trip | ana: please whitelist redirect targets, no open redirects | dana: coffee? | lee: brb",
-    "github.get_file": {
-      "path": "app/auth/verify-email/page.tsx",
-      "repository_url": "https://github.com/acme/web-app",
-      "content": "export default function VerifyEmail() { const router = useRouter(); useEffect(() => { confirmToken().then(() => { router.push('/dashboard'); }); }, []); return <Spinner/>; }"
-    },
-    "ci.get_logs": "INFO build started\nINFO installing dependencies\nINFO dependencies installed in 41s\nINFO running unit tests\nINFO 1423 tests passed\nWARN flaky test auth.spec retried once\nINFO building production bundle\nINFO bundle size 2.4mb\nINFO deploy to staging complete\nINFO healthcheck ok\nINFO build started\nINFO installing dependencies\nINFO dependencies installed in 39s\nINFO running unit tests\nINFO 1423 tests passed\nINFO building production bundle\nINFO deploy to staging complete\nINFO healthcheck ok"
+    "tool": "github.list_issues",
+    "repository_url": "https://github.com/acme/web-platform",
+    "total": 15,
+    "issues": [
+      {
+        "number": 1,
+        "repository_url": "https://github.com/acme/web-platform",
+        "html_url": "https://github.com/acme/web-platform/issues/1",
+        "user": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "labels": [
+          {
+            "id": 900,
+            "name": "bug",
+            "color": "d73a4a",
+            "url": "https://github.com/acme/web-platform/labels/bug",
+            "default": false
+          },
+          {
+            "id": 901,
+            "name": "auth",
+            "color": "0e8a16",
+            "url": "https://github.com/acme/web-platform/labels/auth",
+            "default": false
+          }
+        ],
+        "state": "open",
+        "assignee": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "milestone": null,
+        "comments": 1,
+        "body": "Login redirect fails intermittently on Safari for returning users."
+      },
+      {
+        "number": 2,
+        "repository_url": "https://github.com/acme/web-platform",
+        "html_url": "https://github.com/acme/web-platform/issues/2",
+        "user": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "labels": [
+          {
+            "id": 900,
+            "name": "bug",
+            "color": "d73a4a",
+            "url": "https://github.com/acme/web-platform/labels/bug",
+            "default": false
+          }
+        ],
+        "state": "open",
+        "assignee": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "milestone": null,
+        "comments": 2,
+        "body": "Token refresh loops when the session expires mid-request."
+      },
+      {
+        "number": 3,
+        "repository_url": "https://github.com/acme/web-platform",
+        "html_url": "https://github.com/acme/web-platform/issues/3",
+        "user": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "labels": [
+          {
+            "id": 900,
+            "name": "bug",
+            "color": "d73a4a",
+            "url": "https://github.com/acme/web-platform/labels/bug",
+            "default": false
+          },
+          {
+            "id": 901,
+            "name": "auth",
+            "color": "0e8a16",
+            "url": "https://github.com/acme/web-platform/labels/auth",
+            "default": false
+          }
+        ],
+        "state": "closed",
+        "assignee": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "milestone": null,
+        "comments": 3,
+        "body": "Deep link is dropped after the email verification step."
+      },
+      {
+        "number": 4,
+        "repository_url": "https://github.com/acme/web-platform",
+        "html_url": "https://github.com/acme/web-platform/issues/4",
+        "user": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "labels": [
+          {
+            "id": 900,
+            "name": "bug",
+            "color": "d73a4a",
+            "url": "https://github.com/acme/web-platform/labels/bug",
+            "default": false
+          }
+        ],
+        "state": "open",
+        "assignee": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "milestone": null,
+        "comments": 0,
+        "body": "Login redirect fails intermittently on Safari for returning users."
+      },
+      {
+        "number": 5,
+        "repository_url": "https://github.com/acme/web-platform",
+        "html_url": "https://github.com/acme/web-platform/issues/5",
+        "user": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "labels": [
+          {
+            "id": 900,
+            "name": "bug",
+            "color": "d73a4a",
+            "url": "https://github.com/acme/web-platform/labels/bug",
+            "default": false
+          },
+          {
+            "id": 901,
+            "name": "auth",
+            "color": "0e8a16",
+            "url": "https://github.com/acme/web-platform/labels/auth",
+            "default": false
+          }
+        ],
+        "state": "open",
+        "assignee": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "milestone": null,
+        "comments": 1,
+        "body": "Token refresh loops when the session expires mid-request."
+      },
+      {
+        "number": 6,
+        "repository_url": "https://github.com/acme/web-platform",
+        "html_url": "https://github.com/acme/web-platform/issues/6",
+        "user": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "labels": [
+          {
+            "id": 900,
+            "name": "bug",
+            "color": "d73a4a",
+            "url": "https://github.com/acme/web-platform/labels/bug",
+            "default": false
+          }
+        ],
+        "state": "closed",
+        "assignee": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "milestone": null,
+        "comments": 2,
+        "body": "Deep link is dropped after the email verification step."
+      },
+      {
+        "number": 7,
+        "repository_url": "https://github.com/acme/web-platform",
+        "html_url": "https://github.com/acme/web-platform/issues/7",
+        "user": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "labels": [
+          {
+            "id": 900,
+            "name": "bug",
+            "color": "d73a4a",
+            "url": "https://github.com/acme/web-platform/labels/bug",
+            "default": false
+          },
+          {
+            "id": 901,
+            "name": "auth",
+            "color": "0e8a16",
+            "url": "https://github.com/acme/web-platform/labels/auth",
+            "default": false
+          }
+        ],
+        "state": "open",
+        "assignee": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "milestone": null,
+        "comments": 3,
+        "body": "Login redirect fails intermittently on Safari for returning users."
+      },
+      {
+        "number": 8,
+        "repository_url": "https://github.com/acme/web-platform",
+        "html_url": "https://github.com/acme/web-platform/issues/8",
+        "user": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "labels": [
+          {
+            "id": 900,
+            "name": "bug",
+            "color": "d73a4a",
+            "url": "https://github.com/acme/web-platform/labels/bug",
+            "default": false
+          }
+        ],
+        "state": "open",
+        "assignee": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "milestone": null,
+        "comments": 0,
+        "body": "Token refresh loops when the session expires mid-request."
+      },
+      {
+        "number": 9,
+        "repository_url": "https://github.com/acme/web-platform",
+        "html_url": "https://github.com/acme/web-platform/issues/9",
+        "user": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "labels": [
+          {
+            "id": 900,
+            "name": "bug",
+            "color": "d73a4a",
+            "url": "https://github.com/acme/web-platform/labels/bug",
+            "default": false
+          },
+          {
+            "id": 901,
+            "name": "auth",
+            "color": "0e8a16",
+            "url": "https://github.com/acme/web-platform/labels/auth",
+            "default": false
+          }
+        ],
+        "state": "closed",
+        "assignee": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "milestone": null,
+        "comments": 1,
+        "body": "Deep link is dropped after the email verification step."
+      },
+      {
+        "number": 10,
+        "repository_url": "https://github.com/acme/web-platform",
+        "html_url": "https://github.com/acme/web-platform/issues/10",
+        "user": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "labels": [
+          {
+            "id": 900,
+            "name": "bug",
+            "color": "d73a4a",
+            "url": "https://github.com/acme/web-platform/labels/bug",
+            "default": false
+          }
+        ],
+        "state": "open",
+        "assignee": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "milestone": null,
+        "comments": 2,
+        "body": "Login redirect fails intermittently on Safari for returning users."
+      },
+      {
+        "number": 11,
+        "repository_url": "https://github.com/acme/web-platform",
+        "html_url": "https://github.com/acme/web-platform/issues/11",
+        "user": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "labels": [
+          {
+            "id": 900,
+            "name": "bug",
+            "color": "d73a4a",
+            "url": "https://github.com/acme/web-platform/labels/bug",
+            "default": false
+          },
+          {
+            "id": 901,
+            "name": "auth",
+            "color": "0e8a16",
+            "url": "https://github.com/acme/web-platform/labels/auth",
+            "default": false
+          }
+        ],
+        "state": "open",
+        "assignee": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "milestone": null,
+        "comments": 3,
+        "body": "Token refresh loops when the session expires mid-request."
+      },
+      {
+        "number": 12,
+        "repository_url": "https://github.com/acme/web-platform",
+        "html_url": "https://github.com/acme/web-platform/issues/12",
+        "user": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "labels": [
+          {
+            "id": 900,
+            "name": "bug",
+            "color": "d73a4a",
+            "url": "https://github.com/acme/web-platform/labels/bug",
+            "default": false
+          }
+        ],
+        "state": "closed",
+        "assignee": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "milestone": null,
+        "comments": 0,
+        "body": "Deep link is dropped after the email verification step."
+      },
+      {
+        "number": 13,
+        "repository_url": "https://github.com/acme/web-platform",
+        "html_url": "https://github.com/acme/web-platform/issues/13",
+        "user": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "labels": [
+          {
+            "id": 900,
+            "name": "bug",
+            "color": "d73a4a",
+            "url": "https://github.com/acme/web-platform/labels/bug",
+            "default": false
+          },
+          {
+            "id": 901,
+            "name": "auth",
+            "color": "0e8a16",
+            "url": "https://github.com/acme/web-platform/labels/auth",
+            "default": false
+          }
+        ],
+        "state": "open",
+        "assignee": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "milestone": null,
+        "comments": 1,
+        "body": "Login redirect fails intermittently on Safari for returning users."
+      },
+      {
+        "number": 14,
+        "repository_url": "https://github.com/acme/web-platform",
+        "html_url": "https://github.com/acme/web-platform/issues/14",
+        "user": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "labels": [
+          {
+            "id": 900,
+            "name": "bug",
+            "color": "d73a4a",
+            "url": "https://github.com/acme/web-platform/labels/bug",
+            "default": false
+          }
+        ],
+        "state": "open",
+        "assignee": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "milestone": null,
+        "comments": 2,
+        "body": "Token refresh loops when the session expires mid-request."
+      },
+      {
+        "number": 15,
+        "repository_url": "https://github.com/acme/web-platform",
+        "html_url": "https://github.com/acme/web-platform/issues/15",
+        "user": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "labels": [
+          {
+            "id": 900,
+            "name": "bug",
+            "color": "d73a4a",
+            "url": "https://github.com/acme/web-platform/labels/bug",
+            "default": false
+          },
+          {
+            "id": 901,
+            "name": "auth",
+            "color": "0e8a16",
+            "url": "https://github.com/acme/web-platform/labels/auth",
+            "default": false
+          }
+        ],
+        "state": "closed",
+        "assignee": {
+          "login": "octo-dev",
+          "id": 1001,
+          "url": "https://github.com/users/octo-dev",
+          "type": "User",
+          "site_admin": false
+        },
+        "milestone": null,
+        "comments": 3,
+        "body": "Deep link is dropped after the email verification step."
+      }
+    ]
   }
 }

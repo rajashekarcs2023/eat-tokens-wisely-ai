@@ -6,3 +6,6 @@ tiktoken
 anthropic>=0.40
 fastapi
 uvicorn[standard]
+# optional — enables the semantic reranker (suffix/semantic.py, compress(..., semantic=True)).
+# generation-free ONNX embeddings; the pipeline is a no-op without it. uncomment to use:
+# fastembed

@@ -119,7 +119,8 @@ def _render(units_in_order):
     return "\n".join(out)
 
 
-def compress(task: str, raw, budget: int = 200):
+def compress(task: str, raw, budget: int = 200, semantic: bool = False,
+             safe: bool = False, min_coverage: float = 0.6):
     is_json = isinstance(raw, (dict, list))
     if is_json:
         # Structured data -> the LOSSLESS structural codec is the right tool (NOT the
@@ -163,12 +164,36 @@ def compress(task: str, raw, budget: int = 200):
 
     if units:
         scores = get_scorer().score_example(example)
+        if semantic:  # optional: blend in embedding-cosine to close the lexical-overlap gap (no-op if no backend)
+            from .semantic import blend
+            scores = blend(scores, task, [u["text"] for u in units], weight=0.65)
     else:
         scores = []
     for u, s in zip(units, scores):
         u["score"] = float(s)
 
     selected = select_coverage(example, scores, budget) if units else []
+
+    # coverage-confidence: how many of the question's key anchors survived in the kept spans.
+    def _cov(sel):
+        needs = covered_needs(example, sel)
+        return (sum(n["covered"] for n in needs) / len(needs)) if needs else 1.0
+
+    coverage = _cov(selected)
+    effective_budget, auto_expanded = budget, False
+    # safe mode: if the answer-bearing anchors aren't covered, widen the budget until they are
+    # (or we've effectively included the whole input) — never silently drop the answer.
+    raw_tok_cap = sum(u["tokens"] for u in units)
+    if safe and units and coverage < min_coverage:
+        b = budget
+        while coverage < min_coverage and b < raw_tok_cap:
+            b = int(b * 1.5)
+            cand = select_coverage(example, scores, b)
+            c = _cov(cand)
+            if len(cand) <= len(selected) and c <= coverage:
+                break  # no further improvement to be had
+            selected, coverage, effective_budget, auto_expanded = cand, c, b, True
+
     sel = set(selected)
     by_uid = {u["uid"]: u for u in units}
     kept_in_order = [by_uid[uid] for uid in selected]
@@ -198,6 +223,13 @@ def compress(task: str, raw, budget: int = 200):
         "n_units": len(units),
         "n_kept": len(selected),
         "structural": structural,
+        # coverage-confidence: the share of the question's key terms present in the kept spans.
+        # Turns a silent drop into a signal; with safe=True the budget auto-widens to cover them.
+        "coverage": round(coverage, 2),
+        "confident": bool(coverage >= min_coverage),
+        "fallback_recommended": bool(units and coverage < min_coverage),
+        "auto_expanded": auto_expanded,
+        "effective_budget": effective_budget,
         "covered_needs": covered_needs(example, selected) if units else [],
         "compressed_text": kept_text,
         "units": [

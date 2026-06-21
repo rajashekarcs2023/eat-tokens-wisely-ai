@@ -187,6 +187,16 @@
           <span>budget <b id="bval">200</b> tok</span>
           <input type="range" id="budget" min="40" max="600" step="20" value="200" style="flex:1" />
         </div>
+        <div class="row" style="margin-top:4px;gap:16px;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);cursor:pointer">
+            <input type="checkbox" id="semantic" /> 🧠 semantic rerank
+            <span class="muted">(embedding model — catches differently-worded answers; still no LLM)</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);cursor:pointer">
+            <input type="checkbox" id="safe" /> 🛡️ safe mode
+            <span class="muted">(auto-widen the budget if the answer's terms aren't covered — never silently drop it)</span>
+          </label>
+        </div>
         <div class="note" id="liveNote"></div>
       </div>
       <div>
@@ -590,10 +600,12 @@ document.querySelectorAll('[data-preset]').forEach(btn=>btn.addEventListener('cl
 async function runCompress(){
   const task=document.getElementById('task').value;
   const raw=document.getElementById('raw').value.trim();
-  let body={task,budget:+budget.value};
+  const semantic=document.getElementById('semantic').checked;
+  const safe=document.getElementById('safe').checked;
+  let body={task,budget:+budget.value,semantic,safe};
   try{const o=JSON.parse(raw); if(o&&typeof o==='object'){body.json_input=o;} else {body.text=raw;}}
   catch(e){body.text=raw;}
-  document.getElementById('run').textContent='Compressing…';
+  document.getElementById('run').textContent=semantic?'Compressing (loading embeddings)…':'Compressing…';
   const r=await (await fetch('/api/compress',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
   document.getElementById('run').textContent='Compress ▶';
   render(r);
@@ -617,6 +629,11 @@ function render(r){
     `<div class="span ${u.kept?'keep':'drop'}"><span class="sc">${u.score.toFixed(2)}</span> ${esc(u.text)}<div class="meta">${u.kept?'KEPT':'drop'} · ${esc(u.title||'')} · ${esc(u.source||'')} · ${u.tokens}t</div></div>`).join('');
   let note='';
   if(r.structural&&r.structural.saved_tokens>0) note+=`Lossless structural codec: −${r.structural.saved_tokens} tok via ${r.structural.n_refs} refs (round-trip verified). `;
+  if(r.semantic_used) note+=`<span class="ok">🧠 semantic rerank ON</span> — scores blend embedding-similarity (no LLM) to catch differently-worded answers. `;
+  if(r.coverage!==undefined && r.n_units>0){
+    if(r.fallback_recommended) note+=`<span class="warnc">⚠ low confidence — only ${Math.round(r.coverage*100)}% of the task's key terms are covered</span>; the answer may be missing. Enable 🛡️ safe mode or send the full context. `;
+    else note+=`<span class="ok">✓ confident</span> — ${Math.round(r.coverage*100)}% of the task's key terms covered${r.auto_expanded?` (🛡️ safe mode auto-widened the budget to ${r.effective_budget} tok to keep them)`:''}. `;
+  }
   note+=`Selected ${r.n_kept}/${r.n_units} spans. Every kept <b>span</b> is verbatim from source; section headers are added for readability.`;
   document.getElementById('liveNote').innerHTML=note;
 }

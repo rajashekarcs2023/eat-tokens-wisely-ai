@@ -81,6 +81,10 @@ The lossless guarantee is `decode(encode(obj)) == obj` (deep object equality). `
 
 Output is a **verbatim subsequence** of the source: every kept span is an exact substring of the input; the only added text is synthetic section headers. `tests/test_extractive.py` asserts this by string-containment.
 
+**Coverage-confidence + safe fallback.** Every lossy result reports `coverage` — the share of the question's key terms present in the kept spans — plus `confident` and `fallback_recommended`. This turns a silent drop into a signal: when the answer's terms aren't covered, the caller knows to send full context. With `compress(..., safe=True)`, the budget **auto-widens** until those terms are covered rather than dropping them (unit-tested in `tests/test_extractive.py`).
+
+**Optional — semantic reranking (`suffix/semantic.py`).** The learned scorer ranks mostly by *lexical* overlap, so it can miss an answer phrased differently from the question (zero shared words). An optional, **generation-free** embedding signal (a small ONNX model via `fastembed`, no LLM) closes that gap: `compress(task, raw, budget, semantic=True)` blends embedding-cosine into the score. It is **off by default and a no-op if no backend is installed** (the pipeline is unchanged). Demonstrated in `scripts/semantic_demo.py`: on a constructed lexical-gap case the lexical scorer ranks the answer #3 and drops it, while the semantic blend ranks it #1 and keeps it — despite zero shared words. Enable with `pip install fastembed`. Both toggles are live in the demo's compressor.
+
 ### Measurement (`suffix/llm.py`, `suffix/metrics.py`)
 The reader is `claude-haiku-4-5`, `max_tokens=32`, `temperature=0`, with a fixed neutral system prompt (*"answer from the provided context only … shortest exact answer … no explanation"*), identical for the full and compressed arms; the gold answer is never in the prompt. Scoring is `squad_em` (normalized exact match) and `squad_f1` (token-level F1) — pure string comparison, no model in the loop.
 

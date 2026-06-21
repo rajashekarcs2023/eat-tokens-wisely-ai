@@ -291,12 +291,17 @@ class CompressReq(BaseModel):
     text: str | None = None
     json_input: dict | None = None
     budget: int = 200
+    semantic: bool = False
+    safe: bool = False
 
 
 @app.post("/api/compress")
 def do_compress(req: CompressReq):
     raw = req.json_input if req.json_input is not None else (req.text or "")
-    result = compress(req.task, raw, budget=req.budget)
+    result = compress(req.task, raw, budget=req.budget, semantic=req.semantic, safe=req.safe)
+    from suffix.semantic import available
+    result["semantic_used"] = bool(req.semantic and available())   # whether the embedding rerank actually ran
+    result["semantic_available"] = available()
     return JSONResponse(result)
 
 

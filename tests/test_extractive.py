@@ -51,7 +51,33 @@ def test_json_compress_is_lossless_not_lossy():
     print(f"JSON lossless: {r['raw_tokens']} -> {r['kept_tokens']} tok, byte-exact round-trip")
 
 
+def test_coverage_confidence_and_safe_fallback():
+    """The lossy mode reports how much of the question it covered, and 'safe' mode widens
+    the budget rather than silently dropping the answer."""
+    doc = (
+        "Migrations are scheduled to run nightly during the maintenance window. "
+        "The orders service is owned by the payments platform team in the east region. "
+        "The orders table migration fails because any ALTER statement that exceeds the configured "
+        "statement_timeout of exactly 30000 milliseconds is aborted and rolled back by Postgres. "
+        "Postgres for this service runs on the dedicated db-prod-7 database instance. "
+        "The deployment dashboard shows the status of every nightly migration run."
+    )
+    q = "What statement_timeout value causes the orders table migration to fail?"
+
+    # tiny budget: the long answer span doesn't fit -> dropped -> low coverage flagged, not hidden
+    low = compress(q, doc, budget=25, safe=False)
+    assert low["fallback_recommended"] is True and low["confident"] is False
+    assert "30000" not in low["compressed_text"]
+
+    # safe mode: auto-widens until the answer's terms are covered
+    safe = compress(q, doc, budget=25, safe=True)
+    assert safe["auto_expanded"] is True
+    assert safe["coverage"] > low["coverage"]
+    assert "30000" in safe["compressed_text"], "safe mode must recover the answer span"
+
+
 if __name__ == "__main__":
     test_kept_spans_are_verbatim_text()
     test_json_compress_is_lossless_not_lossy()
+    test_coverage_confidence_and_safe_fallback()
     print("OK extractive")

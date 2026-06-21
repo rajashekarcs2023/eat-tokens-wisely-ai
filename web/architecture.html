@@ -66,6 +66,8 @@ score each span vs the task
 keep smallest set under a token budget
    ↓  verbatim spans only</div>
       <div style="font-size:13px;margin-top:8px">Output is a <b>verbatim subsequence</b> of the source (no fabrication in the compression step — unit-tested). A token-budget knob slides along a rate–distortion curve. <b>No LLM in the compression path</b> (milliseconds, CPU) — so savings are real, not circular.</div>
+      <div style="font-size:12.5px;margin-top:8px" class="muted"><b style="color:var(--acc)">Coverage-confidence + safe fallback:</b> every result reports how much of the question's key terms the kept spans cover — a silent drop becomes a signal. In <b>safe mode</b> the budget auto-widens until they're covered rather than losing the answer.</div>
+      <div style="font-size:12.5px;margin-top:6px" class="muted"><b style="color:var(--acc)">Optional semantic rerank:</b> the scorer is mostly lexical, so it can miss an answer worded differently from the task. A small <b>embedding model</b> (generation-free, still no LLM) blends in semantic similarity to close that gap — off by default, toggle it live in the demo's compressor.</div>
     </div>
   </div>
 
